@@ -16,12 +16,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.func import functional_call
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from src.edl_model import EvidentialNet, StandardClassifierNet, edl_total_loss
 from src.fairness import sliced_wasserstein_distance, demographic_parity_loss
-from src.dp_optimizer import SubgroupCalibratedDPOptimizer
+from src.dp_optimizer import VectorizedSCDPOptimizer, SubgroupCalibratedDPOptimizer
 from src.conformal import DPGroupConditionalConformalPredictor
 from src.xai import DualChannelDirichletExplainer, compute_explanation_infidelity, compute_faithfulness_correlation
 from src.metrics import (
@@ -86,14 +87,20 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
         
     optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     
+    p0 = float(torch.mean((s_tr == 0).float()).item())
+    p1 = max(1.0 - p0, 1e-4)
+    p0 = max(p0, 1e-4)
+
     if is_dp and noise_multiplier > 0:
-        dp_opt = SubgroupCalibratedDPOptimizer(
+        dp_opt = VectorizedSCDPOptimizer(
             model=model,
             optimizer=optimizer,
             max_grad_norm=max_grad_norm,
             noise_multiplier=noise_multiplier,
             subgroup_balance=use_sc_dp,
-            gamma=0.5
+            gamma=0.5,
+            p0=p0,
+            p1=p1
         )
     else:
         dp_opt = None
@@ -112,17 +119,18 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
             bs = s_tr[batch_idx]
             
             if dp_opt is not None:
-                def loss_fn_single(x_i, y_i, s_i):
+                def loss_per_sample(params, x_i, y_i):
                     if is_edl:
-                        ev, alpha, prob, unc = model(x_i)
-                        total_l, _, _ = edl_total_loss(ev, alpha, y_i, num_classes=2)
+                        ev, alpha, prob, unc = functional_call(model, params, (x_i.unsqueeze(0),))
+                        total_l, _, _ = edl_total_loss(ev, alpha, y_i.unsqueeze(0), num_classes=2)
                     else:
-                        logits, prob = model(x_i)
-                        total_l = nn.CrossEntropyLoss()(logits, y_i)
+                        logits, prob = functional_call(model, params, (x_i.unsqueeze(0),))
+                        y_oh = (torch.arange(2, device=prob.device) == y_i).float()
+                        total_l = -torch.sum(y_oh * torch.log(prob[0] + 1e-10))
                     return total_l
                     
                 q_sub = len(batch_idx) / n_samples
-                dp_opt.step_with_microbatches(loss_fn_single, bx, by, bs, q_subsample=q_sub)
+                dp_opt.step(loss_per_sample, bx, by, bs, q_subsample=q_sub)
                 
             else:
                 optimizer.zero_grad()

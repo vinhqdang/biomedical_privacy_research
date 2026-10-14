@@ -17,11 +17,11 @@ class EvidentialNet(nn.Module):
         # Backbone feature extractor
         self.encoder = nn.Sequential(
             nn.Linear(in_features, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.BatchNorm1d(hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(dropout_rate)
         )
@@ -60,11 +60,11 @@ class StandardClassifierNet(nn.Module):
         super(StandardClassifierNet, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(in_features, hidden_dim),
-            nn.BatchNorm1d(hidden_dim),
+            nn.LayerNorm(hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout_rate),
             nn.Linear(hidden_dim, hidden_dim // 2),
-            nn.BatchNorm1d(hidden_dim // 2),
+            nn.LayerNorm(hidden_dim // 2),
             nn.ReLU(),
             nn.Dropout(dropout_rate)
         )
@@ -86,7 +86,7 @@ def edl_bayes_loss(y, alpha, num_classes=2):
     alpha: Dirichlet concentration parameters (batch_size, K)
     """
     if len(y.shape) == 1:
-        y_one_hot = F.one_hot(y, num_classes=num_classes).float()
+        y_one_hot = (torch.arange(num_classes, device=y.device) == y.unsqueeze(-1)).float()
     else:
         y_one_hot = y.float()
         
@@ -101,7 +101,7 @@ def edl_kl_divergence(alpha, y, num_classes=2):
     Penalizes generating evidence for misleading classes.
     """
     if len(y.shape) == 1:
-        y_one_hot = F.one_hot(y, num_classes=num_classes).float()
+        y_one_hot = (torch.arange(num_classes, device=y.device) == y.unsqueeze(-1)).float()
     else:
         y_one_hot = y.float()
         

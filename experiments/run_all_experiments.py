@@ -8,8 +8,13 @@ Generates structured JSON/CSV results and publication-quality figures.
 """
 
 import os
+import sys
 import json
 import time
+
+# Ensure repository root is on sys.path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -294,6 +299,8 @@ def main():
     all_results.extend(res3)
     
     # Save combined results
+    os.makedirs("experiments/results", exist_ok=True)
+    os.makedirs("manuscript/figures", exist_ok=True)
     df_results = pd.DataFrame(all_results)
     out_csv = "experiments/results/benchmark_results.csv"
     out_json = "experiments/results/benchmark_results.json"
@@ -304,6 +311,7 @@ def main():
     
     # Generate publication figures
     generate_publication_figures(df_results, models3, splits3, feats3, out_dir="figures")
+    generate_publication_figures(df_results, models3, splits3, feats3, out_dir="manuscript/figures")
     
     total_min = (time.time() - start_time) / 60.0
     print(f"\n=======================================================")
