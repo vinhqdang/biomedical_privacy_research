@@ -18,7 +18,7 @@ Dear Editor-in-Chief and Members of the Editorial Board,
 
 I am pleased to submit our original research manuscript titled:  
 
-**"TRACER-Med: Trustworthy Deep Learning for Differentially Private, Equitable, and Uncertainty-Calibrated Clinical Decision Support"**  
+**"TRACER-Med: Evidential Deep Learning with Differentially Private Subgroup-Aware Optimization, Prototype Alignment, and Conformal Prediction for Clinical Decision Support"**  
 
 for consideration as a regular research article in *Journal of Biomedical Informatics*.  
 
@@ -49,7 +49,7 @@ The contribution is methodological. Existing methods address privacy and subgrou
 
 ### Empirical Validation and Regulatory Mapping
 
-We validate TRACER-Med across three clinical benchmarks: Statlog Heart Disease ($N=270$), Pima Indians Diabetes ($N=768$), and a simulated acute inpatient EHR cohort ($N=10{,}000$), against ERM, DP-SGD, a DPSGD-F-style baseline, Fair-ERM, evidential learning and DP-EDL. Class-conditional prototype alignment lowers demographic parity and Equalized Odds disparity relative to the private baselines on the two clinical cohorts (for example $\Delta_{\text{EO}}$ from 0.137--0.168 to 0.075 on Statlog Heart), and TRACER-Med has the lowest empirical membership-inference AUC among private models on all three cohorts. The manuscript also reports the limits of the method: the privacy budgets under an exact Poisson-subsampled RDP accountant are large ($\epsilon = 27.7$, $17.5$, $7.3$ at noise multiplier 0.8), the private conformal layer is uninformative on the two small cohorts, and the ablation shows no measurable benefit of subgroup-calibrated clipping beyond prototype alignment. Finally, we map the framework to the US FDA's Good Machine Learning Practice (GMLP), the FDA's December 2024 guidance on Predetermined Change Control Plans (PCCP), and Articles 9–15 of the European Union AI Act.
+We evaluate TRACER-Med on three clinical benchmarks: Statlog Heart Disease ($N=270$), Pima Indians Diabetes ($N=768$), and a simulated acute inpatient EHR cohort ($N=10{,}000$), against ERM, DP-SGD, a DPSGD-F-style baseline, Fair-ERM, evidential learning and DP-EDL, with an exact Poisson-subsampled RDP accountant, a common decision operating point, a noise-multiplier sweep and ablations. The results are mixed, and the manuscript reports them as such. TRACER-Med has the lowest empirical membership-inference AUC among private models on all three cohorts, better calibration on the large cohort at every noise level tested, and lower statistical parity disparity on Statlog Heart. It does not reduce Equalized Odds disparity, its private conformal layer is uninformative on the two small cohorts, its utility falls under heavy noise on Statlog Heart, and the ablation shows no measurable benefit of subgroup-calibrated clipping. Finally, we map the framework to the US FDA's Good Machine Learning Practice (GMLP), the FDA's December 2024 guidance on Predetermined Change Control Plans (PCCP), and Articles 9–15 of the European Union AI Act.
 
 ---
 

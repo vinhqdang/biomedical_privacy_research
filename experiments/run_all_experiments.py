@@ -75,6 +75,7 @@ def run_dataset_benchmark(dataset_name, X, y, sensitive, feature_names, n_seeds=
             epochs = 20 if X.shape[0] < 1000 else 12
             batch_sz = 32 if X.shape[0] < 1000 else 128
             
+            torch.manual_seed(seed); np.random.seed(seed)
             model, eps, delta = train_model(
                 model_type=m_type,
                 splits=splits,

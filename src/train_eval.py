@@ -208,14 +208,27 @@ def evaluate_model_pipeline(model, model_type, splits, eps, delta,
     y_test_np = splits["y_test"].numpy()
     s_test_np = splits["s_test"].numpy()
     
+    # Operating point: Youden-J threshold chosen on the calibration split (no sensitive attribute,
+    # same rule for every model), so decision-based metrics do not depend on each model's score scale.
+    from sklearn.metrics import roc_curve
+    fpr_c, tpr_c, thr_c = roc_curve(splits["y_cal"].numpy(), cal_probs[:, 1])
+    j = tpr_c - fpr_c
+    cand = np.where(j >= j.max() - 1e-12)[0]
+    op_threshold = float(thr_c[cand[np.argmin(np.abs(thr_c[cand] - 0.5))]])
+    op_threshold = min(max(op_threshold, 1e-6), 1.0 - 1e-6)
+
     # 1. Clinical utility metrics
-    clinical_metrics = compute_clinical_metrics(y_test_np, test_probs[:, 1])
+    clinical_metrics = compute_clinical_metrics(y_test_np, test_probs[:, 1], threshold=op_threshold)
     
     # 2. Calibration metrics
     calib_metrics = compute_calibration_metrics(y_test_np, test_probs[:, 1])
     
     # 3. Fairness metrics
-    fairness_metrics = compute_fairness_metrics(y_test_np, test_probs[:, 1], s_test_np)
+    fairness_metrics = compute_fairness_metrics(y_test_np, test_probs[:, 1], s_test_np, threshold=op_threshold)
+    fm05 = compute_fairness_metrics(y_test_np, test_probs[:, 1], s_test_np, threshold=0.5)
+    fairness_metrics["DP_Disparity_T05"] = fm05["DP_Disparity"]
+    fairness_metrics["EO_Disparity_T05"] = fm05["EO_Disparity"]
+    fairness_metrics["Op_Threshold"] = op_threshold
     
     # 4. Privacy metrics (Formal DP + Empirical MIA AUC)
     mia_risk = compute_mia_risk(train_probs[:, 1], splits["y_train"].numpy(),

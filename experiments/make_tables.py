@@ -60,3 +60,20 @@ for i, (ds, g) in enumerate(d.groupby("Dataset", sort=False)):
             cs.append("$" + s + ("^*" if star else "") + "$")
         lines.append(AL[mod] + " & " + " & ".join(cs) + " \\\\")
 open("manuscript/table_ablation_body.tex", "w").write("\n".join(lines) + "\n")
+
+# Noise-sweep table (experiments/results/noise_sweep.csv)
+sw = pd.read_csv("experiments/results/noise_sweep.csv")
+MS = ["Standard DP-SGD", "DP-EDL", "TRACER-Med (Proposed)"]
+lines = []
+for i, (ds, g) in enumerate(sw.groupby("Dataset", sort=False)):
+    if i: lines.append("\\midrule")
+    lines.append("\\multicolumn{11}{l}{\\emph{" + TITLES[i].split(" (")[0] + "}} \\\\")
+    for sg, gg in g.groupby("Sigma"):
+        eps = gg["Epsilon"].iloc[0]
+        cs = []
+        for m in ["AUC", "DP_Disparity", "ECE"]:
+            for mod in MS:
+                r = gg[gg.Model == mod].iloc[0]
+                cs.append(f"{r[m+'_mean']:.3f}")
+        lines.append(f"{sg:.1f} & {eps:.1f} & " + " & ".join(cs) + " \\\\")
+open("manuscript/table_sweep_body.tex", "w").write("\n".join(lines) + "\n")

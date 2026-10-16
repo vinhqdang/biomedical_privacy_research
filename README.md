@@ -1,4 +1,4 @@
-# TRACER-Med: Harmonizing Privacy, Fairness, and Uncertainty in Clinical Deep Learning
+# TRACER-Med: Evidential Deep Learning with Differentially Private Subgroup-Aware Optimization, Prototype Alignment, and Conformal Prediction
 
 **Author:** Quang-Vinh Dang  
 **Affiliation:** British University Vietnam, Hung Yen, Vietnam  

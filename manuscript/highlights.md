@@ -1,6 +1,6 @@
 # Highlights
 
-**TRACER-Med: Trustworthy Deep Learning for Differentially Private, Equitable, and Uncertainty-Calibrated Clinical Decision Support**  
+**TRACER-Med: Evidential Deep Learning with Differentially Private Subgroup-Aware Optimization, Prototype Alignment, and Conformal Prediction for Clinical Decision Support**  
 *Journal of Biomedical Informatics* (Elsevier)
 
 - Formulates clinical Privacy-Fairness-Uncertainty Trilemma under DP. (67 characters)
