@@ -1,9 +1,9 @@
 # Submission Record & Milestone Log
 
 **Date:** October 15, 2026  
-**Status:** Submitted to Journal Editorial System (Editorial Manager)  
+**Status:** Rejected (Manuscript AIIM-D-26-06999, Oct 16, 2026)  
 **Target Journal:** *Artificial Intelligence in Medicine* (Elsevier)  
-**Editor-in-Chief:** Prof. Carlo Combi (University of Verona, Italy)  
+**Editor-in-Chief:** Prof. Zhengxing Huang  
 
 ---
 
@@ -78,3 +78,11 @@
 | **Stage 2** | Under Review | Weeks 2–8 | Reviewer invitation and report collection |
 | **Stage 3** | First Editorial Decision | Weeks 8–12 | Major/Minor revision or decision notice |
 | **Stage 4** | Revision & Rebuttal | Upon decision | Address reviewer queries systematically |
+
+---
+
+### Editorial Decision (Oct 16, 2026)
+
+*Artificial Intelligence in Medicine* rejected the manuscript without review. The Editor-in-Chief's comment: the journal requires novelty in methodological and/or theoretical content in AI and computer science, shown through experimental evaluation, comparison with other proposals and explicit discussion of novelty. Applying well-known or published techniques to medical data is not regarded as original research for the journal.
+
+Next step: reposition the contribution around its methodological novelty (REF-DP, PC-PAT, DP-GCCP, DCDA) and resubmit to a suitable venue.

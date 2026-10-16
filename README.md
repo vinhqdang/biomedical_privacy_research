@@ -3,7 +3,7 @@
 **Author:** Quang-Vinh Dang  
 **Affiliation:** British University Vietnam, Hung Yen, Vietnam  
 **Contact:** `vinh.dq4@buv.edu.vn`  
-**Target Venue:** Elsevier (*Artificial Intelligence in Medicine*)  
+**Status:** Rejected by *Artificial Intelligence in Medicine* (Oct 2026); being repositioned for another venue  
 
 ---
 
@@ -50,12 +50,6 @@ biomedical_privacy_research/
 │   ├── run_all_experiments.py   # Full benchmark execution and figure generation
 │   └── results/                 # Structured CSV and JSON benchmark results
 ├── figures/                     # Root-level publication figures
-├── review/                      # Automated peer review reports and referee scripts
-│   ├── run_claude_review.py     # Claude review runner script
-│   ├── review_round1.md         # Initial comprehensive review report
-│   ├── review_round2.md         # Major revision audit report
-│   ├── review_round3.md         # Third-round verification report
-│   └── review_round4.md         # Final pre-submission audit report
 ├── LICENSE                      # BSD-3-Clause License
 └── README.md                    # Repository documentation
 ```
