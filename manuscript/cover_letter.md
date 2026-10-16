@@ -6,21 +6,21 @@ British University Vietnam
 Ecopark Township, Hung Yen, Vietnam  
 Email: [vinh.dq4@buv.edu.vn](mailto:vinh.dq4@buv.edu.vn)  
 
-October 15, 2026  
+October 16, 2026  
 
-**Professor Carlo Combi**  
-Editor-in-Chief, *Artificial Intelligence in Medicine*  
+**The Editor-in-Chief**  
+*Journal of Biomedical Informatics*  
 Elsevier  
 
-**Subject: Submission of Original Research Manuscript to *Artificial Intelligence in Medicine***  
+**Subject: Submission of Original Research Manuscript to *Journal of Biomedical Informatics***  
 
-Dear Professor Combi and Distinguished Editorial Board,  
+Dear Editor-in-Chief and Members of the Editorial Board,  
 
 I am pleased to submit our original research manuscript titled:  
 
 **"TRACER-Med: Trustworthy Deep Learning for Differentially Private, Equitable, and Uncertainty-Calibrated Clinical Decision Support"**  
 
-for consideration as a regular research article in *Artificial Intelligence in Medicine*.  
+for consideration as a regular research article in *Journal of Biomedical Informatics*.  
 
 ---
 
@@ -38,6 +38,12 @@ To resolve these interconnected challenges, we present **TRACER-Med**, an organi
 - **Privatized Class-Conditional Prototypical Anchor Transport (PC-PAT):** Rather than enforcing marginal demographic parity which distorts disease base rates, we formulate class-conditional alignment toward learnable diagnostic prototypes with an orthogonal angular margin constraint, proving that this contracts the demographic 2-Wasserstein transport distance $\mathcal{W}_2(\mathbb{P}_{0, y}, \mathbb{P}_{1, y}) \to 0$ while preserving strict per-sample record independence.
 - **Differentially Private Group-Conditional Conformal Prediction (DP-GCCP):** Under Stratified Bounded Replacement Adjacency ($\Delta_1 = 2$), we prove a finite-sample sub-exponential PAC coverage theorem and establish an Empirical-Bayes shrinkage estimator that generates compact, informative prediction sets without vacuity collapse.
 - **Axiomatic Dual-Channel Dirichlet Attribution (DCDA):** Satisfying Completeness, Linearity, and Implementation Invariance, DCDA disentangles features driving posterior disease risk from features driving epistemic clinical doubt relative to standardized physiological reference baselines.
+
+---
+
+### Methodological Novelty
+
+The contribution is methodological. Existing methods address privacy and subgroup fairness together (DPSGD-F, fair private empirical risk minimization), or uncertainty without privacy (evidential learning, group-conditional conformal prediction), or privacy for coverage alone (private conformal quantiles). None addresses all three requirements, nor explains epistemic doubt separately from disease risk. TRACER-Med derives subgroup clipping thresholds from the Fisher metric of the Dirichlet output manifold, aligns class-conditional prototypes without cross-sample gradient coupling, and calibrates conformal sets per cohort with a finite-sample PAC guarantee under bounded replacement adjacency. Each component carries a formal guarantee, stated and proved in the manuscript, and the combined system is compared against ERM, DP-SGD, Fair-ERM, evidential learning and DP-EDL baselines with ablations. The manuscript discusses novelty relative to prior work in a dedicated subsection of the Related Work section.
 
 ---
 

@@ -34,18 +34,18 @@ Email: \href{mailto:vinh.dq4@buv.edu.vn}{vinh.dq4@buv.edu.vn}
 \end{flushleft}
 
 \vspace{0.5em}
-\hfill October 15, 2026
+\hfill October 16, 2026
 
 \vspace{0.5em}
-\textbf{Professor Carlo Combi} \\
-Editor-in-Chief, \emph{Artificial Intelligence in Medicine} \\
+\textbf{The Editor-in-Chief} \\
+\emph{Journal of Biomedical Informatics} \\
 Elsevier
 
 \vspace{1em}
-\textbf{Subject: Submission of Original Research Manuscript to \emph{Artificial Intelligence in Medicine}}
+\textbf{Subject: Submission of Original Research Manuscript to \emph{Journal of Biomedical Informatics}}
 
 \vspace{0.5em}
-Dear Professor Combi and Distinguished Editorial Board,
+Dear Editor-in-Chief and Members of the Editorial Board,
 
 I am pleased to submit our original research manuscript titled:
 
@@ -53,7 +53,7 @@ I am pleased to submit our original research manuscript titled:
 \textbf{``TRACER-Med: Trustworthy Deep Learning for Differentially Private, Equitable, and Uncertainty-Calibrated Clinical Decision Support''}
 \end{center}
 
-for consideration as a regular research article in \emph{Artificial Intelligence in Medicine}.
+for consideration as a regular research article in \emph{Journal of Biomedical Informatics}.
 
 \subsection*{Clinical Motivation and Theoretical Contributions}
 The deployment of deep neural networks in real-world clinical decision support systems (CDSS) is governed by strict biomedical, ethical, and regulatory demands: patient privacy under HIPAA and GDPR, demographic fairness across protected patient sub-populations, calibrated uncertainty quantification to prevent overconfident diagnostic errors, and actionable clinical explainability.
@@ -72,6 +72,9 @@ To resolve these interconnected challenges, we present \textbf{TRACER-Med}, an o
     \item \textbf{Differentially Private Group-Conditional Conformal Prediction (DP-GCCP):} Under Stratified Bounded Replacement Adjacency ($\Delta_1 = 2$), we prove a finite-sample sub-exponential PAC coverage theorem and establish an Empirical-Bayes shrinkage estimator that generates compact, informative prediction sets without vacuity collapse.
     \item \textbf{Axiomatic Dual-Channel Dirichlet Attribution (DCDA):} Satisfying Completeness, Linearity, and Implementation Invariance, DCDA disentangles features driving posterior disease risk from features driving epistemic clinical doubt relative to standardized physiological reference baselines.
 \end{itemize}
+
+\subsection*{Methodological Novelty}
+The contribution is methodological. Existing methods address privacy and subgroup fairness together (DPSGD-F, fair private empirical risk minimization), or uncertainty without privacy (evidential learning, group-conditional conformal prediction), or privacy for coverage alone (private conformal quantiles). None addresses all three requirements, nor explains epistemic doubt separately from disease risk. TRACER-Med derives subgroup clipping thresholds from the Fisher metric of the Dirichlet output manifold, aligns class-conditional prototypes without cross-sample gradient coupling, and calibrates conformal sets per cohort with a finite-sample PAC guarantee under bounded replacement adjacency. Each component carries a formal guarantee, stated and proved in the manuscript, and the combined system is compared against ERM, DP-SGD, Fair-ERM, evidential learning and DP-EDL baselines with ablations. Section 3.5 of the manuscript discusses novelty explicitly.
 
 \subsection*{Empirical Validation and Regulatory Mapping}
 We validate TRACER-Med across three clinical benchmarks: Statlog Heart Disease ($N=270, D=12$), Pima Indians Diabetes ($N=768, D=8$), and a simulated acute inpatient EHR cohort ($N=10{,}000, D=15$). Across all benchmarks, TRACER-Med achieves balanced multi-objective performance, mitigating demographic error disparities while matching underlying epidemiological prevalence gaps, avoiding conformal set collapse, and demonstrating empirical resilience against membership inference attacks (MIA AUC $\approx 0.505$). Finally, we map our framework directly to international regulatory frameworks, including the US FDA's Good Machine Learning Practice (GMLP), the FDA's December 2024 guidance on Predetermined Change Control Plans (PCCP), and Articles 9--15 of the European Union AI Act.

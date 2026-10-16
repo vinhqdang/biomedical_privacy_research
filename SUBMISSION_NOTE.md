@@ -2,7 +2,8 @@
 
 **Date:** October 15, 2026  
 **Status:** Rejected (Manuscript AIIM-D-26-06999, Oct 16, 2026)  
-**Target Journal:** *Artificial Intelligence in Medicine* (Elsevier)  
+**Previous Journal:** *Artificial Intelligence in Medicine* (Elsevier), rejected
+**Next Target Journal:** *Journal of Biomedical Informatics* (Elsevier)  
 **Editor-in-Chief:** Prof. Zhengxing Huang  
 
 ---

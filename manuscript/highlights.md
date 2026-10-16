@@ -1,7 +1,7 @@
 # Highlights
 
 **TRACER-Med: Trustworthy Deep Learning for Differentially Private, Equitable, and Uncertainty-Calibrated Clinical Decision Support**  
-*Artificial Intelligence in Medicine* (Elsevier)
+*Journal of Biomedical Informatics* (Elsevier)
 
 - Formulates clinical Privacy-Fairness-Uncertainty Trilemma under DP. (67 characters)
 - Derives Riemannian Dirichlet-Fisher DP-SGD from information geometry. (68 characters)

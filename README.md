@@ -3,7 +3,7 @@
 **Author:** Quang-Vinh Dang  
 **Affiliation:** British University Vietnam, Hung Yen, Vietnam  
 **Contact:** `vinh.dq4@buv.edu.vn`  
-**Status:** Rejected by *Artificial Intelligence in Medicine* (Oct 2026); being repositioned for another venue  
+**Status:** Rejected by *Artificial Intelligence in Medicine* (Oct 2026); next target: *Journal of Biomedical Informatics*  
 
 ---
 

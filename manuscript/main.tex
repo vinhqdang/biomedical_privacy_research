@@ -11,7 +11,7 @@
 \usepackage{xcolor}
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 
-\journal{Artificial Intelligence in Medicine}
+\journal{Journal of Biomedical Informatics}
 
 \theoremstyle{plain}
 \newtheorem{theorem}{Theorem}
@@ -43,7 +43,7 @@
 \end{highlights}
 
 \begin{abstract}
-Deploying deep neural networks in clinical decision support requires simultaneously satisfying strict patient privacy statutes, demographic error-rate equity, calibrated uncertainty quantification, and clinically actionable explainability. However, integrating standard Differentially Private Stochastic Gradient Descent (DP-SGD) with evidential learning induces a Privacy--Fairness--Uncertainty Trilemma: uniform gradient clipping disproportionately attenuates minority representations, privacy perturbation destabilizes Dirichlet evidence accumulation, and private conformal calibration risks set vacuity on small cohorts. To resolve these tensions, we introduce \textbf{TRACER-Med}, an organically unified trustworthy deep learning architecture for biomedical decision support. TRACER-Med integrates: (1) an evidential Dirichlet network decomposing predictive uncertainty into aleatoric variation and epistemic vacuity; (2) Riemannian Evidential-Fisher Subgroup-Calibrated DP-SGD (REF-DP), deriving adaptive cohort clipping thresholds from the Dirichlet Fisher metric to preserve minority representations under Rényi Differential Privacy; (3) Privatized Class-Conditional Prototypical Anchor Transport (PC-PAT), contracting the 2-Wasserstein demographic distance to learned diagnostic prototypes with strict per-sample gradient independence; (4) Differentially Private Group-Conditional Conformal Prediction (DP-GCCP), implementing an Empirical-Bayes shrinkage estimator over Laplace-perturbed histograms with bounded replacement $\ell_1$ sensitivity $\Delta_1 = 2$ and sub-exponential PAC concentration bounds; and (5) Dual-Channel Dirichlet Attribution (DCDA), disentangling diagnostic disease risk from epistemic clinical doubt relative to standardized physiological reference baselines. Validated across Statlog Heart Disease ($N=270$), Pima Indians Diabetes ($N=768$), and a simulated acute inpatient EHR cohort ($N=10{,}000$), TRACER-Med achieves balanced multi-objective performance: it mitigates demographic disparities while reflecting true epidemiological base-rate differences, avoids baseline conformal set collapse by generating compact prediction sets ($\overline{|\mathcal{C}|} \approx 1.80$--$1.87$), and demonstrates robust resistance against membership inference attacks (MIA AUC $0.505$). TRACER-Med establishes an auditable, theoretically grounded paradigm aligned with emerging FDA and EU AI Act clinical governance standards.
+Deploying deep neural networks in clinical decision support requires simultaneously satisfying strict patient privacy statutes, demographic error-rate equity, calibrated uncertainty quantification, and clinically actionable explainability. However, integrating standard Differentially Private Stochastic Gradient Descent (DP-SGD) with evidential learning induces a Privacy--Fairness--Uncertainty Trilemma: uniform gradient clipping disproportionately attenuates minority representations, privacy perturbation destabilizes Dirichlet evidence accumulation, and private conformal calibration risks set vacuity on small cohorts. To resolve these tensions, we introduce \textbf{TRACER-Med}, an organically unified trustworthy deep learning architecture for biomedical decision support. TRACER-Med integrates: (1) an evidential Dirichlet network decomposing predictive uncertainty into aleatoric variation and epistemic vacuity; (2) Riemannian Evidential-Fisher Subgroup-Calibrated DP-SGD (REF-DP), deriving adaptive cohort clipping thresholds from the Dirichlet Fisher metric to preserve minority representations under Rényi Differential Privacy; (3) Privatized Class-Conditional Prototypical Anchor Transport (PC-PAT), contracting the 2-Wasserstein demographic distance to learned diagnostic prototypes with strict per-sample gradient independence; (4) Differentially Private Group-Conditional Conformal Prediction (DP-GCCP), implementing an Empirical-Bayes shrinkage estimator over Laplace-perturbed histograms with bounded replacement $\ell_1$ sensitivity $\Delta_1 = 2$ and sub-exponential PAC concentration bounds; and (5) Dual-Channel Dirichlet Attribution (DCDA), disentangling diagnostic disease risk from epistemic clinical doubt relative to standardized physiological reference baselines. Validated across Statlog Heart Disease ($N=270$), Pima Indians Diabetes ($N=768$), and a simulated acute inpatient EHR cohort ($N=10{,}000$), TRACER-Med achieves balanced multi-objective performance: it mitigates demographic disparities while reflecting true epidemiological base-rate differences, avoids baseline conformal set collapse by generating compact prediction sets ($\overline{|\mathcal{C}|} \approx 1.80$--$1.87$), and demonstrates robust resistance against membership inference attacks (MIA AUC $0.505$). TRACER-Med is, to our knowledge, the first framework to couple subgroup-aware private optimization, class-conditional fairness alignment, private conformal calibration, and uncertainty-aware attribution under a single sensitivity analysis, and it is accompanied by formal privacy, transport, coverage, and attribution guarantees.
 \end{abstract}
 
 \begin{keyword}
@@ -124,6 +124,32 @@ Conformal Prediction (CP)~\cite{vovk2005algorithmic,angelopoulos2021gentle,tibsh
 
 \subsection{Explainable AI and Attribution Robustness}
 Attribution methods such as Integrated Gradients (IG)~\cite{sundararajan2017axiomatic} and SHAP~\cite{lundberg2017unified} provide axiomatic guarantees for feature attribution. Most existing attribution frameworks are single-channel, explaining only the predicted disease class. However, in clinical decision support, identifying features that contribute to epistemic uncertainty is equally essential~\cite{antoran2021clue,perez2022attribution}, as formalized by H{\"u}llermeier and Waegeman~\cite{hullermeier2021aleatoric} regarding the fundamental distinction between aleatoric and epistemic uncertainty. Furthermore, assessing explanation fidelity (via Infidelity metrics~\cite{yeh2019infidelity}) and empirical privacy auditing~\cite{patel2022towards,shokri2017membership,yeom2018privacy,carlini2022membership} is crucial to ensure that clinicians receive reliable, privacy-preserving diagnostic explanations.
+
+\subsection{Positioning and Novelty Relative to Prior Work}
+\label{sec:novelty}
+Prior work treats the three requirements of the trilemma in isolation or in pairs. Table~\ref{tab:positioning} summarizes which requirements each family of methods addresses, using the characterizations in the preceding subsections. DP-SGD~\cite{abadi2016deep} provides privacy only. DPSGD-F~\cite{xu2021removing} and fair private empirical risk minimization~\cite{tran2021differentially} pair privacy with point-prediction fairness but offer no uncertainty quantification. Evidential learning~\cite{sensoy2018evidential} and group-conditional conformal prediction~\cite{vovk2003mondrian,romano2020malice} provide uncertainty without privacy, and private conformal quantiles~\cite{angelopoulos2021private} provide privacy for coverage without addressing training-time disparity. Integrated Gradients~\cite{sundararajan2017axiomatic} explains the predicted class only.
+
+The methodological novelty of this article lies in the coupling of these components rather than in their stacking: (i) the subgroup clipping thresholds of REF-DP are derived from the Fisher metric of the Dirichlet output manifold, which links the privacy mechanism to the evidential parameterization; (ii) PC-PAT aligns class-conditional prototypes, so fairness is enforced on Equalized Odds without distorting base rates and without cross-sample gradient coupling, which preserves the per-sample sensitivity bound used by REF-DP; (iii) DP-GCCP carries a finite-sample PAC coverage guarantee for each cohort under stratified bounded replacement adjacency; and (iv) DCDA exploits the closed-form Dirichlet structure to attribute epistemic doubt separately from disease risk. Items (i) to (iii) are accompanied by formal guarantees (Theorem~\ref{thm:privacy}, Proposition~\ref{prop:wasserstein_bound}, Theorem~\ref{thm:conformal}), and item (iv) by an axiomatic characterization (Proposition~\ref{prop:dcda_axioms}).
+
+\begin{table}[t]
+\centering
+\caption{Coverage of the three trilemma requirements and explanation type by representative method families. A check mark indicates that the requirement is addressed by the cited method; a dash indicates that it is not.}
+\label{tab:positioning}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Method family & Privacy & Subgroup fairness & Uncertainty & Uncertainty explanation \\
+\midrule
+DP-SGD~\cite{abadi2016deep} & \checkmark & -- & -- & -- \\
+DPSGD-F~\cite{xu2021removing}, fair private ERM~\cite{tran2021differentially} & \checkmark & \checkmark & -- & -- \\
+Evidential learning~\cite{sensoy2018evidential} & -- & -- & \checkmark & -- \\
+Group-conditional conformal~\cite{vovk2003mondrian,romano2020malice} & -- & \checkmark (coverage) & \checkmark & -- \\
+Private conformal quantiles~\cite{angelopoulos2021private} & \checkmark & -- & \checkmark & -- \\
+Integrated Gradients~\cite{sundararajan2017axiomatic} & -- & -- & -- & -- \\
+\textbf{TRACER-Med (this work)} & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \section{Problem Formulation and Notation}
 \label{sec:problem}
