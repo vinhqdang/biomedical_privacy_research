@@ -98,6 +98,7 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
             max_grad_norm=max_grad_norm,
             noise_multiplier=noise_multiplier,
             subgroup_balance=use_sc_dp,
+            adaptive_group_clip=(model_type == "DPSGD-F (simplified)"),
             gamma=0.5,
             p0=p0,
             p1=p1
@@ -113,17 +114,21 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
         np.random.shuffle(indices)
         
         for start_idx in range(0, n_samples, batch_size):
-            batch_idx = indices[start_idx : start_idx + batch_size]
+            if dp_opt is not None:
+                # Poisson subsampling: each record joins the batch independently with prob q
+                batch_idx = np.nonzero(np.random.rand(n_samples) < batch_size / n_samples)[0]
+                if len(batch_idx) == 0:
+                    continue
+            else:
+                batch_idx = indices[start_idx : start_idx + batch_size]
             bx = X_tr[batch_idx]
             by = y_tr[batch_idx]
             bs = s_tr[batch_idx]
             
             if dp_opt is not None:
                 if use_swd:
-                    from src.fairness import compute_latent_cc_swd_adjoints
-                    u_adjoints = compute_latent_cc_swd_adjoints(model, bx, by, bs, num_projections=50)
-                    
-                    def loss_per_sample(params, x_i, y_i, s_i, u_i):
+                    # PC-PAT: class-conditional prototype anchoring; loss of sample i depends on sample i only
+                    def loss_per_sample(params, x_i, y_i, s_i):
                         if is_edl:
                             ev, alpha, prob, unc = functional_call(model, params, (x_i.unsqueeze(0),))
                             total_l, _, _ = edl_total_loss(ev, alpha, y_i.unsqueeze(0), num_classes=2)
@@ -131,14 +136,13 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
                             logits, prob = functional_call(model, params, (x_i.unsqueeze(0),))
                             y_oh = (torch.arange(2, device=prob.device) == y_i).float()
                             total_l = -torch.sum(y_oh * torch.log(prob[0] + 1e-10))
-                            
                         enc_params = {k.replace('encoder.', ''): v for k, v in params.items() if k.startswith('encoder.')}
                         h_i = functional_call(model.encoder, enc_params, (x_i.unsqueeze(0),))
-                        total_l = total_l + lambda_fair * torch.sum(u_i.unsqueeze(0) * h_i)
-                        return total_l
-                        
-                    q_sub = len(batch_idx) / n_samples
-                    dp_opt.step(loss_per_sample, bx, by, bs, extra_args=u_adjoints, q_subsample=q_sub, expected_batch_size=batch_size)
+                        proto = torch.sum(params['prototypes'] * (torch.arange(2, device=h_i.device) == y_i).float().unsqueeze(1), dim=0)
+                        return total_l + lambda_fair * 0.5 * torch.sum((h_i.squeeze(0) - proto) ** 2)
+
+                    q_sub = batch_size / n_samples
+                    dp_opt.step(loss_per_sample, bx, by, bs, q_subsample=q_sub, expected_batch_size=batch_size)
                 else:
                     def loss_per_sample(params, x_i, y_i, s_i):
                         if is_edl:
@@ -150,7 +154,7 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
                             total_l = -torch.sum(y_oh * torch.log(prob[0] + 1e-10))
                         return total_l
                         
-                    q_sub = len(batch_idx) / n_samples
+                    q_sub = batch_size / n_samples
                     dp_opt.step(loss_per_sample, bx, by, bs, q_subsample=q_sub, expected_batch_size=batch_size)
                 
             else:

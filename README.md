@@ -9,11 +9,11 @@
 
 ## Overview
 
-**TRACER-Med** (**TR**ustworthy, **A**daptive, **C**onformalized, **E**vidential, and Differentially P**R**ivate Deep Learning for **Med**icine) resolves the **Privacy--Fairness--Uncertainty Trilemma** in clinical machine learning by unifying:
+**TRACER-Med** (**TR**ustworthy, **A**daptive, **C**onformalized, **E**vidential, and Differentially P**R**ivate Deep Learning for **Med**icine) addresses the **Privacy--Fairness--Uncertainty Trilemma** in clinical machine learning by unifying:
 
 1. **Evidential Dirichlet Neural Networks:** Second-order evidential formulation parameterizing Dirichlet beliefs to analytically decouple aleatoric entropy from epistemic vacuity.
-2. **Subgroup-Calibrated DP-SGD (SC-DP-SGD):** Group-conditioned clipping and dynamic sensitivity reweighting strictly bounding global sensitivity by $C_{\max}$ under R\'enyi Differential Privacy, eliminating the disparate privacy penalty on minority patient cohorts.
-3. **Latent Sliced Wasserstein Demographic Alignment:** Pre-training/regularization module aligning penultimate representations across demographic cohorts without cross-sample gradient coupling during private optimization.
+2. **Subgroup-Calibrated DP-SGD (SC-DP-SGD):** Group-conditioned clipping and dynamic sensitivity reweighting bounding global sensitivity by $C_{\max}$ under R\'enyi Differential Privacy (accounted with the exact Poisson-subsampled Gaussian RDP accountant).
+3. **Class-Conditional Prototype Alignment (PC-PAT):** Per-sample anchoring of latent representations to learnable class prototypes, so private gradients stay independent across samples.
 4. **Differentially Private Group-Conditional Conformal Prediction (DP-GCCP):** Private empirical quantile mechanism providing finite-sample subgroup coverage guarantees ($\ge 1 - \alpha_{\text{conf}}$) with split-level privacy accounting.
 5. **Dual-Channel Dirichlet Attribution (DCDA):** Closed-form path-integrated feature attributions simultaneously explaining diagnostic risk evidence (Channel A) and clinical doubt/vacuity (Channel B).
 
@@ -48,6 +48,7 @@ biomedical_privacy_research/
 │   └── download_benchmarks.py   # Benchmark preparation and verification script
 ├── experiments/                 # Benchmark experiment orchestration
 │   ├── run_all_experiments.py   # Full benchmark execution and figure generation
+│   ├── make_tables.py           # Builds the manuscript LaTeX tables from results CSV
 │   └── results/                 # Structured CSV and JSON benchmark results
 ├── figures/                     # Root-level publication figures
 ├── LICENSE                      # BSD-3-Clause License

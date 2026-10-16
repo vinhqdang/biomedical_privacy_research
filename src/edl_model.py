@@ -29,6 +29,9 @@ class EvidentialNet(nn.Module):
         
         # Evidence prediction head (must be non-negative)
         self.evidence_head = nn.Linear(self.latent_dim, num_classes)
+
+        # Learnable class prototypes for PC-PAT (model parameters, so per-sample gradients stay independent)
+        self.prototypes = nn.Parameter(torch.randn(num_classes, self.latent_dim) * 0.1)
         
     def forward_latent(self, x):
         """Extract latent representation for fairness alignment"""
@@ -67,6 +70,7 @@ class StandardClassifierNet(nn.Module):
             nn.LeakyReLU(0.1)
         )
         self.head = nn.Linear(hidden_dim // 2, num_classes)
+        self.prototypes = nn.Parameter(torch.randn(num_classes, hidden_dim // 2) * 0.1)
         
     def forward_latent(self, x):
         return self.encoder(x)

@@ -17,21 +17,26 @@ import numpy as np
 
 def compute_rdp(q, sigma, alpha):
     """
-    Computes Rényi Differential Privacy (RDP) order alpha for subsampled Gaussian mechanism.
-    q: Poisson subsampling ratio (expected batch size / N_tr)
-    sigma: noise multiplier
-    alpha: Renyi divergence order (> 1)
+    RDP of order alpha for the Poisson-subsampled Gaussian mechanism (Mironov et al., 2019),
+    computed exactly for integer alpha:
+        eps(alpha) = log( sum_k C(alpha,k) (1-q)^(alpha-k) q^k exp((k^2-k)/(2 sigma^2)) ) / (alpha-1)
+    q: Poisson sampling probability, sigma: noise multiplier, alpha: integer order >= 2
     """
     if q == 0:
         return 0.0
-    if q == 1.0:
-        return alpha / (2.0 * (sigma ** 2))
     if sigma == 0:
         return float('inf')
-        
-    # Numerical subsampled Gaussian mechanism RDP bound (Mironov et al., 2019; Wang et al., 2019)
-    term = (q ** 2) * alpha / (2.0 * (sigma ** 2))
-    return float(term)
+    if q == 1.0:
+        return alpha / (2.0 * (sigma ** 2))
+    alpha = int(alpha)
+    log_terms = []
+    for k in range(alpha + 1):
+        log_binom = math.lgamma(alpha + 1) - math.lgamma(k + 1) - math.lgamma(alpha - k + 1)
+        log_terms.append(log_binom + (alpha - k) * math.log1p(-q) + (k * math.log(q) if k > 0 else 0.0)
+                         + (k * k - k) / (2.0 * sigma ** 2))
+    m = max(log_terms)
+    log_a = m + math.log(sum(math.exp(t - m) for t in log_terms))
+    return log_a / (alpha - 1)
 
 def rdp_to_dp(rdp_dict, target_delta=1e-5):
     """
@@ -48,7 +53,8 @@ def rdp_to_dp(rdp_dict, target_delta=1e-5):
 class VectorizedSCDPOptimizer:
     def __init__(self, model, optimizer, max_grad_norm=1.0, noise_multiplier=0.8,
                  subgroup_balance=True, gamma=0.5, kappa=0.25, 
-                 p0=0.5, p1=0.5, s0_prior=2.5, s1_prior=3.0, target_delta=1e-5):
+                 p0=0.5, p1=0.5, s0_prior=2.5, s1_prior=3.0, target_delta=1e-5,
+                 adaptive_group_clip=False, adaptive_cap=2.0):
         """
         model: nn.Module
         optimizer: torch.optim.Optimizer (e.g. Adam post-processing)
@@ -69,7 +75,11 @@ class VectorizedSCDPOptimizer:
         self.gamma = gamma
         self.kappa = kappa
         self.target_delta = target_delta
-        
+        # DPSGD-F-style baseline: group thresholds follow the batch mean per-sample
+        # gradient norm of each group, bounded to [0.25 C, adaptive_cap * C].
+        self.adaptive_group_clip = adaptive_group_clip
+        self.adaptive_cap = adaptive_cap
+
         # Calculate closed-form Evidential-Fisher sensitivity weights
         # Lower baseline evidence S_bar_a implies higher gradient variance, warranting larger clipping threshold
         if subgroup_balance:
@@ -93,10 +103,12 @@ class VectorizedSCDPOptimizer:
             
         # Global worst-case L2 sensitivity bound across groups
         self.c_max = self.max_grad_norm * max(self.w0, self.w1, 1.0)
+        if adaptive_group_clip:
+            self.c_max = self.max_grad_norm * adaptive_cap
         
         # Privacy tracking
         self.steps = 0
-        self.rdp_orders = [1 + x / 10.0 for x in range(1, 100)] + list(range(12, 64))
+        self.rdp_orders = list(range(2, 129))
         self.total_rdp = {alpha: 0.0 for alpha in self.rdp_orders}
 
     def step(self, loss_per_sample_fn, bx, by, bs, extra_args=None, q_subsample=0.01, expected_batch_size=32):
@@ -134,6 +146,15 @@ class VectorizedSCDPOptimizer:
         # 3. Compute group-calibrated clipping threshold C_a
         group_weights = torch.where(bs == 0, float(self.w0), float(self.w1)).to(device)
         group_clipping_bounds = self.max_grad_norm * group_weights
+        if self.adaptive_group_clip:
+            bounds = torch.full_like(per_sample_norms, self.max_grad_norm)
+            for g in (0, 1):
+                mask = bs == g
+                if mask.any():
+                    thr = per_sample_norms[mask].mean().clamp(0.25 * self.max_grad_norm,
+                                                              self.adaptive_cap * self.max_grad_norm)
+                    bounds[mask] = thr
+            group_clipping_bounds = bounds
         
         # Per-sample clipping factor s_i = min(1, C_a / ||g_i||_2)
         clip_factors = torch.clamp(group_clipping_bounds / per_sample_norms, max=1.0)

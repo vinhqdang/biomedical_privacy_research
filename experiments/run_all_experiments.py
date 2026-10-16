@@ -49,6 +49,7 @@ def run_dataset_benchmark(dataset_name, X, y, sensitive, feature_names, n_seeds=
         {"type": "Standard ERM", "is_dp": False, "noise": 0.0, "sc_dp": False, "swd": False, "group_cp": False},
         {"type": "Standard DP-SGD", "is_dp": True, "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
         {"type": "Fair-ERM", "is_dp": False, "noise": 0.0, "sc_dp": False, "swd": True, "group_cp": False},
+        {"type": "DPSGD-F (simplified)", "is_dp": True, "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
         {"type": "Standard EDL", "is_dp": False, "noise": 0.0, "sc_dp": False, "swd": False, "group_cp": False},
         {"type": "DP-EDL", "is_dp": True, "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
         {"type": "TRACER-Med (Proposed)", "is_dp": True, "noise": 0.8, "sc_dp": True, "swd": True, "group_cp": True},
