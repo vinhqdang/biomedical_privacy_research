@@ -9,21 +9,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class EvidentialNet(nn.Module):
-    def __init__(self, in_features, hidden_dim=64, num_classes=2, dropout_rate=0.1):
+    def __init__(self, in_features, hidden_dim=64, num_classes=2, dropout_rate=0.0):
         super(EvidentialNet, self).__init__()
         self.in_features = in_features
         self.num_classes = num_classes
         
-        # Backbone feature extractor
+        # Backbone feature extractor with LayerNorm (DP-compatible, deterministic)
         self.encoder = nn.Sequential(
             nn.Linear(in_features, hidden_dim),
             nn.LayerNorm(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.LeakyReLU(0.1),
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.LayerNorm(hidden_dim // 2),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate)
+            nn.LeakyReLU(0.1)
         )
         
         # Latent representation dimension
@@ -36,47 +34,49 @@ class EvidentialNet(nn.Module):
         """Extract latent representation for fairness alignment"""
         return self.encoder(x)
 
-    def forward(self, x):
+    def forward(self, x, return_latent=False):
         """
         Returns:
             evidence: non-negative evidence e_k >= 0
             alpha: Dirichlet parameters alpha_k = e_k + 1
             prob: Expected categorical probabilities p_k = alpha_k / S
             uncertainty: Epistemic vacuity u = K / S in (0, 1]
+            (optional) latent: bottleneck latent representations
         """
         latent = self.encoder(x)
-        # Softplus ensures non-negative evidence
         raw_evidence = self.evidence_head(latent)
         evidence = F.softplus(raw_evidence)
         alpha = evidence + 1.0
         S = torch.sum(alpha, dim=1, keepdim=True)
         prob = alpha / S
         uncertainty = self.num_classes / S
+        if return_latent:
+            return evidence, alpha, prob, uncertainty, latent
         return evidence, alpha, prob, uncertainty
 
 class StandardClassifierNet(nn.Module):
     """Standard Softmax DNN baseline for comparison"""
-    def __init__(self, in_features, hidden_dim=64, num_classes=2, dropout_rate=0.1):
+    def __init__(self, in_features, hidden_dim=64, num_classes=2, dropout_rate=0.0):
         super(StandardClassifierNet, self).__init__()
         self.encoder = nn.Sequential(
             nn.Linear(in_features, hidden_dim),
             nn.LayerNorm(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate),
+            nn.LeakyReLU(0.1),
             nn.Linear(hidden_dim, hidden_dim // 2),
             nn.LayerNorm(hidden_dim // 2),
-            nn.ReLU(),
-            nn.Dropout(dropout_rate)
+            nn.LeakyReLU(0.1)
         )
         self.head = nn.Linear(hidden_dim // 2, num_classes)
         
     def forward_latent(self, x):
         return self.encoder(x)
         
-    def forward(self, x):
+    def forward(self, x, return_latent=False):
         latent = self.encoder(x)
         logits = self.head(latent)
         prob = F.softmax(logits, dim=1)
+        if return_latent:
+            return logits, prob, latent
         return logits, prob
 
 def edl_bayes_loss(y, alpha, num_classes=2):

@@ -119,18 +119,39 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
             bs = s_tr[batch_idx]
             
             if dp_opt is not None:
-                def loss_per_sample(params, x_i, y_i):
-                    if is_edl:
-                        ev, alpha, prob, unc = functional_call(model, params, (x_i.unsqueeze(0),))
-                        total_l, _, _ = edl_total_loss(ev, alpha, y_i.unsqueeze(0), num_classes=2)
-                    else:
-                        logits, prob = functional_call(model, params, (x_i.unsqueeze(0),))
-                        y_oh = (torch.arange(2, device=prob.device) == y_i).float()
-                        total_l = -torch.sum(y_oh * torch.log(prob[0] + 1e-10))
-                    return total_l
+                if use_swd:
+                    from src.fairness import compute_latent_cc_swd_adjoints
+                    u_adjoints = compute_latent_cc_swd_adjoints(model, bx, by, bs, num_projections=50)
                     
-                q_sub = len(batch_idx) / n_samples
-                dp_opt.step(loss_per_sample, bx, by, bs, q_subsample=q_sub)
+                    def loss_per_sample(params, x_i, y_i, s_i, u_i):
+                        if is_edl:
+                            ev, alpha, prob, unc = functional_call(model, params, (x_i.unsqueeze(0),))
+                            total_l, _, _ = edl_total_loss(ev, alpha, y_i.unsqueeze(0), num_classes=2)
+                        else:
+                            logits, prob = functional_call(model, params, (x_i.unsqueeze(0),))
+                            y_oh = (torch.arange(2, device=prob.device) == y_i).float()
+                            total_l = -torch.sum(y_oh * torch.log(prob[0] + 1e-10))
+                            
+                        enc_params = {k.replace('encoder.', ''): v for k, v in params.items() if k.startswith('encoder.')}
+                        h_i = functional_call(model.encoder, enc_params, (x_i.unsqueeze(0),))
+                        total_l = total_l + lambda_fair * torch.sum(u_i.unsqueeze(0) * h_i)
+                        return total_l
+                        
+                    q_sub = len(batch_idx) / n_samples
+                    dp_opt.step(loss_per_sample, bx, by, bs, extra_args=u_adjoints, q_subsample=q_sub, expected_batch_size=batch_size)
+                else:
+                    def loss_per_sample(params, x_i, y_i, s_i):
+                        if is_edl:
+                            ev, alpha, prob, unc = functional_call(model, params, (x_i.unsqueeze(0),))
+                            total_l, _, _ = edl_total_loss(ev, alpha, y_i.unsqueeze(0), num_classes=2)
+                        else:
+                            logits, prob = functional_call(model, params, (x_i.unsqueeze(0),))
+                            y_oh = (torch.arange(2, device=prob.device) == y_i).float()
+                            total_l = -torch.sum(y_oh * torch.log(prob[0] + 1e-10))
+                        return total_l
+                        
+                    q_sub = len(batch_idx) / n_samples
+                    dp_opt.step(loss_per_sample, bx, by, bs, q_subsample=q_sub, expected_batch_size=batch_size)
                 
             else:
                 optimizer.zero_grad()
@@ -143,11 +164,10 @@ def train_model(model_type, splits, epochs=25, lr=0.005, batch_size=64,
                     
                 if use_swd:
                     latent = model.forward_latent(bx)
-                    z0 = latent[bs == 0]
-                    z1 = latent[bs == 1]
-                    swd_loss = sliced_wasserstein_distance(z0, z1)
-                    dp_loss = demographic_parity_loss(prob, bs)
-                    loss = loss + lambda_fair * (swd_loss + dp_loss)
+                    from src.fairness import class_conditional_sliced_wasserstein_distance, equalized_odds_penalty
+                    swd_loss = class_conditional_sliced_wasserstein_distance(latent, by, bs)
+                    eo_loss = equalized_odds_penalty(prob, by, bs)
+                    loss = loss + lambda_fair * (swd_loss + eo_loss)
                     
                 loss.backward()
                 nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
@@ -204,7 +224,7 @@ def evaluate_model_pipeline(model, model_type, splits, eps, delta,
     
     # 5. Conformal Reliability
     conformal = DPGroupConditionalConformalPredictor(
-        alpha=conformal_alpha, epsilon_conf=conformal_eps, delta_conf=1e-5
+        alpha=conformal_alpha, epsilon_conf=conformal_eps, beta=0.05
     )
     is_private_cp = "DP" in model_type or "TRACER" in model_type
     conformal.calibrate(

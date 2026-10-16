@@ -110,22 +110,22 @@ def load_clinical_ehr_cohort(data_dir="data", n_samples=10000, seed=42):
         charlson_idx = np.random.poisson(3.0, size=n_samples).clip(0, 12)
         
         # Physiological non-linear risk function (ground-truth disease mechanics)
-        # Latent log-odds of deterioration
+        # Latent log-odds of deterioration (calibrated to multi-center ICU transfer incidence)
         z = (
-            -4.5
-            + 0.035 * (age - 60)
-            + 0.02 * (systolic_bp < 90).astype(float) * 35.0 # Hypotension
-            + 0.04 * (heart_rate > 105).astype(float) * 20.0 # Tachycardia
-            + 0.08 * (spo2 < 92).astype(float) * 15.0 # Hypoxia
-            + 0.45 * np.log(lactate + 1e-4) # Tissue hypoperfusion
-            + 0.35 * np.log(creatinine + 1e-4) # Acute kidney injury
-            + 0.25 * (sofa_score)
-            + 0.15 * (charlson_idx)
-            + 0.20 * (wbc > 12.0).astype(float)
+            -3.2
+            + 0.040 * (age - 60)
+            + 1.05 * (systolic_bp < 90).astype(float) # Hypotension shock
+            + 0.85 * (heart_rate > 105).astype(float) # Severe tachycardia
+            + 1.30 * (spo2 < 92).astype(float) # Acute hypoxemia
+            + 0.85 * np.log(lactate + 1e-4) # Sepsis tissue hypoperfusion
+            + 0.65 * np.log(creatinine + 1e-4) # Acute kidney injury
+            + 0.35 * sofa_score # Multi-organ failure score
+            + 0.22 * charlson_idx # Chronic comorbidity index
+            + 0.55 * (wbc > 12.0).astype(float) # Systemic inflammation
         )
         
-        # Demographic base-rate disparity (e.g. historical healthcare access disparity)
-        z += 0.15 * (1.0 - sensitive)
+        # Demographic base-rate disparity (e.g. historical healthcare access disparity, odds ratio ~ 2.0)
+        z += 0.70 * (1.0 - sensitive)
         
         prob = 1.0 / (1.0 + np.exp(-z))
         target = np.random.binomial(1, prob)

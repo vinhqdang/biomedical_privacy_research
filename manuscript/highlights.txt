@@ -1,0 +1,5 @@
+Formulates clinical Privacy-Fairness-Uncertainty Trilemma under DP.
+Derives Riemannian Dirichlet-Fisher DP-SGD from information geometry.
+Proves strict per-sample record privacy for class prototype transport.
+Establishes finite-sample sub-exponential PAC conformal bounds.
+Dual-channel Dirichlet XAI isolates disease risk from clinical doubt.

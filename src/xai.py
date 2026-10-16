@@ -1,72 +1,107 @@
 """
-Explainable AI (XAI) Module: Dual-Channel Dirichlet Attribution (DCDA)
+Information-Theoretic Dual-Channel Dirichlet Attribution (DCDA)
 Computes path-integrated feature attributions disentangling:
-1. Diagnostic Evidence Attribution (features driving the positive disease prediction)
-2. Epistemic Uncertainty Attribution (features driving clinical doubt/vacuity)
-Includes quantitative evaluation metrics: Explanation Infidelity and Faithfulness Correlation.
+1. Channel A (Diagnostic Risk Attribution): Features driving posterior disease probability p_1(x) = alpha_1 / S
+   relative to demographic-matched physiological reference baselines.
+2. Channel B (Epistemic Doubt Attribution): Features driving Epistemic Mutual Information I[y, p | x],
+   identifying physiological attributes that cause clinical vacuity and model ambiguity.
 """
 
 import torch
 import numpy as np
 
+def compute_epistemic_mutual_information(alpha):
+    """
+    Computes Epistemic Mutual Information I[y, p | x] under Dirichlet distribution:
+    I[y, p | x] = H(E[p]) - E_{p ~ Dir(alpha)}[H(p)]
+    alpha: Dirichlet concentration parameters (B, K)
+    """
+    S = torch.sum(alpha, dim=-1, keepdim=True)
+    p_hat = alpha / S # Expected probability (B, K)
+    
+    # 1. Total predictive entropy H(E[p])
+    total_entropy = -torch.sum(p_hat * torch.log(p_hat + 1e-12), dim=-1)
+    
+    # 2. Expected aleatoric entropy E_{p}[H(p)]
+    # E[ln p_k] = digamma(alpha_k + 1) - digamma(S + 1)
+    digamma_diff = torch.digamma(alpha + 1.0) - torch.digamma(S + 1.0)
+    expected_entropy = -torch.sum(p_hat * digamma_diff, dim=-1)
+    
+    # 3. Epistemic mutual information (non-negative)
+    epistemic_mi = torch.clamp(total_entropy - expected_entropy, min=0.0)
+    return epistemic_mi
+
 class DualChannelDirichletExplainer:
     def __init__(self, model, steps=50):
         """
         model: EvidentialNet instance
-        steps: Riemann integration steps for path integrals
+        steps: Number of Gauss-Legendre quadrature nodes for path integrals
         """
         self.model = model
         self.steps = steps
         
-    def attribute(self, x, baseline=None, target_class=1):
+    def attribute(self, x, sensitive_attr=None, baseline=None, target_class=1):
         """
         Computes dual-channel path integrated gradients.
         Args:
-            x: input tensor (1, D) or (B, D)
-            baseline: baseline reference tensor (same shape), defaults to zeros
-            target_class: index of diagnostic target class
+            x: input tensor (B, D)
+            sensitive_attr: demographic attribute tensor (B,)
+            baseline: baseline reference tensor (B, D), defaults to demographic cohort median or zeros
+            target_class: index of diagnostic risk class (typically 1 for diseased)
         Returns:
-            diag_attr: attribution for positive diagnostic evidence (B, D)
-            unc_attr: attribution for epistemic uncertainty (B, D)
+            risk_attr: attribution for positive diagnostic risk (B, D)
+            doubt_attr: attribution for epistemic mutual information / clinical doubt (B, D)
         """
         self.model.eval()
+        device = x.device
+        B, D = x.shape
+        
         if baseline is None:
             baseline = torch.zeros_like(x)
             
-        alphas = torch.linspace(0.0, 1.0, self.steps, device=x.device)
+        # Gauss-Legendre quadrature points on [0, 1]
+        nodes, weights = np.polynomial.legendre.leggauss(self.steps)
+        # Rescale from [-1, 1] to [0, 1]
+        nodes = 0.5 * (nodes + 1.0)
+        weights = 0.5 * weights
         
-        diag_grads = []
-        unc_grads = []
+        nodes_tensor = torch.tensor(nodes, dtype=torch.float32, device=device)
+        weights_tensor = torch.tensor(weights, dtype=torch.float32, device=device)
         
-        for alpha in alphas:
-            interpolated = baseline + alpha * (x - baseline)
+        risk_grads_accum = torch.zeros_like(x)
+        doubt_grads_accum = torch.zeros_like(x)
+        
+        for step_idx in range(self.steps):
+            t = nodes_tensor[step_idx]
+            w = weights_tensor[step_idx]
+            
+            # Interpolated points along straight-line path
+            interpolated = baseline + t * (x - baseline)
             interpolated = interpolated.clone().detach().requires_grad_(True)
             
             evidence, alpha_params, prob, uncertainty = self.model(interpolated)
             
-            # 1. Diagnostic evidence gradient: log(alpha_target)
-            target_evidence = torch.log(alpha_params[:, target_class] + 1e-6)
-            grad_diag = torch.autograd.grad(target_evidence.sum(), interpolated, retain_graph=True)[0]
-            diag_grads.append(grad_diag)
+            # Channel A: Disease risk target p_hat_1(x) = alpha_1 / S
+            risk_target = prob[:, target_class].sum()
+            grad_risk = torch.autograd.grad(risk_target, interpolated, retain_graph=True)[0]
+            risk_grads_accum += w * grad_risk
             
-            # 2. Epistemic uncertainty gradient: u(x)
-            grad_unc = torch.autograd.grad(uncertainty.sum(), interpolated, retain_graph=False)[0]
-            unc_grads.append(grad_unc)
+            # Channel B: Epistemic mutual information I[y, p | x]
+            epistemic_mi = compute_epistemic_mutual_information(alpha_params).sum()
+            grad_doubt = torch.autograd.grad(epistemic_mi, interpolated, retain_graph=False)[0]
+            doubt_grads_accum += w * grad_doubt
             
-        # Riemann sum approximation
-        avg_diag_grad = torch.stack(diag_grads, dim=0).mean(dim=0)
-        avg_unc_grad = torch.stack(unc_grads, dim=0).mean(dim=0)
+        # Path integrated attributions: (x - baseline) * integral(grad)
+        risk_attr = (x - baseline) * risk_grads_accum
+        doubt_attr = (x - baseline) * doubt_grads_accum
         
-        diag_attr = (x - baseline) * avg_diag_grad
-        unc_attr = (x - baseline) * avg_unc_grad
-        
-        return diag_attr.detach().cpu().numpy(), unc_attr.detach().cpu().numpy()
+        return risk_attr.detach().cpu().numpy(), doubt_attr.detach().cpu().numpy()
 
 def compute_explanation_infidelity(model, x, attributions, num_samples=30, noise_scale=0.1):
     """
-    Computes Explanation Infidelity:
+    Computes Explanation Infidelity (Yeh et al., 2019):
     INFD = E_{I ~ N(0, noise_scale^2 I)} [ (f(x) - f(x - I) - I^T Phi)^2 ]
-    Lower value indicates higher fidelity / faithfulness.
+    Lower values indicate higher explanation fidelity.
     """
     model.eval()
     device = x.device
@@ -106,11 +141,10 @@ def compute_explanation_infidelity(model, x, attributions, num_samples=30, noise
         
     return float(np.mean(infidelities))
 
-def compute_faithfulness_correlation(model, x, attributions, top_k=3):
+def compute_faithfulness_correlation(model, x, attributions):
     """
-    Computes Faithfulness Correlation:
-    Measures the Spearman rank correlation between the attributed importance of features
-    and the actual prediction shift observed when those features are ablated.
+    Computes Faithfulness Correlation (Spearman rank correlation between feature attribution magnitude
+    and prediction shift under zero-ablation).
     """
     model.eval()
     N, D = x.shape
@@ -130,7 +164,7 @@ def compute_faithfulness_correlation(model, x, attributions, top_k=3):
         
         for j in range(D):
             x_ablated = x[i:i+1].clone()
-            x_ablated[0, j] = 0.0 # Zero ablation
+            x_ablated[0, j] = 0.0
             
             with torch.no_grad():
                 if hasattr(model, 'forward') and 'Evidential' in model.__class__.__name__:

@@ -1,0 +1,978 @@
+[
+  {
+    "entry": {
+      "type": "article",
+      "key": "abadi2016deep",
+      "title": "Deep learning with differential privacy",
+      "author": "Abadi, Martin and Chu, Andy and Goodfellow, Ian and McMahan, H Brendan and Mironov, Ilya and Talwar, Kunal and Zhang, Li",
+      "year": "2016",
+      "doi": "10.1145/2976749.2978318",
+      "journal": "Proceedings of the 2016 ACM SIGSAC Conference on Computer and Communications Security",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Deep Learning with Differential Privacy",
+      "doi": "10.1145/2976749.2978318"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "mironov2017renyi",
+      "title": "R{\\'e}nyi differential privacy",
+      "author": "Mironov, Ilya",
+      "year": "2017",
+      "doi": "10.1109/CSF.2017.11",
+      "journal": "IEEE 30th Computer Security Foundations Symposium (CSF)",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 0.6666666666666666,
+      "actual_title": "R\u00e9nyi Differential Privacy",
+      "doi": "10.1109/CSF.2017.11"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "mironov2019renyi",
+      "title": "R{\\'e}nyi differential privacy of the sampled {Gaussian} mechanism",
+      "author": "Mironov, Ilya and Talwar, Kunal and Zhang, Li",
+      "year": "2019",
+      "doi": "",
+      "journal": "arXiv preprint arXiv:1908.10530",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.8,
+      "real_title": "Generalized Gaussian Mechanism for Differential Privacy",
+      "real_doi": "10.1109/tkde.2018.2845388"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "wang2019subsampled",
+      "title": "Subsampled R{\\'e}nyi differential privacy and analytical moments accountant",
+      "author": "Wang, Yu-Xiang and Balle, Borja and Kasiviswanathan, Shiva Prasad",
+      "year": "2020",
+      "doi": "10.29012/jpc.723",
+      "journal": "Journal of Privacy and Confidentiality",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 0.8571428571428571,
+      "actual_title": "Subsampled R\u00e9nyi Differential Privacy and Analytical Moments Accountant",
+      "doi": "10.29012/jpc.723"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "dong2022gaussian",
+      "title": "Gaussian differential privacy",
+      "author": "Dong, Jinshuo and Roth, Aaron and Su, Weijie J",
+      "year": "2022",
+      "doi": "10.1111/rssb.12454",
+      "journal": "Journal of the Royal Statistical Society Series B: Statistical Methodology",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Gaussian Differential Privacy",
+      "doi": "10.1111/rssb.12454"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "bagdasaryan2019differential",
+      "title": "Differential privacy has disparate impact on model accuracy",
+      "author": "Bagdasaryan, Eugene and Poursaeed, Omid and Shmatikov, Vitaly",
+      "year": "2019",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.6666666666666666,
+      "real_title": "(Local) Differential Privacy has NO Disparate Impact on\u00a0Fairness",
+      "real_doi": "10.1007/978-3-031-37586-6_1"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "suriyakumar2021chasing",
+      "title": "Chasing your long tails: Differentially private prediction in health care settings",
+      "author": "Suriyakumar, Vinith M and Papernot, Nicolas and Goldenberg, Anna and Joshi, Shalmali",
+      "year": "2021",
+      "doi": "10.1145/3442188.3445934",
+      "journal": "ACM Conference on Fairness, Accountability, and Transparency (FAccT)",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 0.4,
+      "actual_title": "Chasing Your Long Tails",
+      "doi": "10.1145/3442188.3445934"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "farrand2020neither",
+      "title": "Neither private nor fair: Impact of data imbalance on utility and fairness in differential privacy",
+      "author": "Farrand, Tom and Mireshghallah, Fatemehsadat and Singh, Sahib and Trask, Andrew",
+      "year": "2020",
+      "doi": "10.1145/3411501.3419420",
+      "journal": "Proceedings of the 2020 ACM SIGSAC Conference on Computer and Communications Security Workshop on Privacy-Preserving Machine Learning in Practice (PPMLP)",
+      "url": ""
+    },
+    "status": "DOI_MISMATCH",
+    "details": {
+      "sim": 0.0,
+      "bib_title": "Neither private nor fair: Impact of data imbalance on utility and fairness in differential privacy",
+      "actual_title": "Secure Collaborative Training and Inference for XGBoost",
+      "doi": "10.1145/3411501.3419420"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "tran2021differentially",
+      "title": "Differentially private empirical risk minimization under the fairness lens",
+      "author": "Tran, Cuong and Fioretto, Ferdinando and Van Hentenryck, Pascal",
+      "year": "2021",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.625,
+      "real_title": "Differentially Private Confidence Intervals for Empirical Risk Minimization",
+      "real_doi": "10.29012/jpc.660"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "xu2021removing",
+      "title": "Removing disparate impact on model accuracy in differentially private stochastic gradient descent",
+      "author": "Xu, Depeng and Du, Wei and Wu, Xintao",
+      "year": "2021",
+      "doi": "10.1145/3442188.3445914",
+      "journal": "ACM Conference on Fairness, Accountability, and Transparency (FAccT)",
+      "url": ""
+    },
+    "status": "DOI_MISMATCH",
+    "details": {
+      "sim": 0.0,
+      "bib_title": "Removing disparate impact on model accuracy in differentially private stochastic gradient descent",
+      "actual_title": "You Can't Sit With Us",
+      "doi": "10.1145/3442188.3445914"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "esipova2022gradient",
+      "title": "Disparate impact in differential privacy from gradient misalignment",
+      "author": "Esipova, Maria and Yurtsev, Atilla and Redberg, Rachel and Lavoie, Nicolas and Campbell, Colin",
+      "year": "2023",
+      "doi": "",
+      "journal": "International Conference on Learning Representations (ICLR)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5714285714285714,
+      "real_title": "(Local) Differential Privacy has NO Disparate Impact on\u00a0Fairness",
+      "real_doi": "10.1007/978-3-031-37586-6_1"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "obermeyer2019dissecting",
+      "title": "Dissecting racial bias in an algorithm used to manage the health of populations",
+      "author": "Obermeyer, Ziad and Powers, Brian and Vogeli, Christine and Mullainathan, Sendhil",
+      "year": "2019",
+      "doi": "10.1126/science.aax2342",
+      "journal": "Science",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Dissecting racial bias in an algorithm used to manage the health of populations",
+      "doi": "10.1126/science.aax2342"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "rajkomar2018ensuring",
+      "title": "Ensuring fairness in machine learning to advance health equity",
+      "author": "Rajkomar, Alvin and Hardt, Moritz and Howell, Michael D and Corrado, Greg and Chin, Marshall H",
+      "year": "2018",
+      "doi": "10.7326/M18-1990",
+      "journal": "Annals of Internal Medicine",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Ensuring Fairness in Machine Learning to Advance Health Equity",
+      "doi": "10.7326/M18-1990"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "seyyed2021underdiagnosis",
+      "title": "Underdiagnosis bias of artificial intelligence algorithms applied to chest radiographs in under-served patient populations",
+      "author": "Seyyed-Kalantari, Laleh and Liu, Guanxiong and McDermott, Matthew and Chen, Irene Y and Ghassemi, Marzyeh",
+      "year": "2021",
+      "doi": "10.1038/s41591-021-01595-0",
+      "journal": "Nature Medicine",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Underdiagnosis bias of artificial intelligence algorithms applied to chest radiographs in under-served patient populations",
+      "doi": "10.1038/s41591-021-01595-0"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "sensoy2018evidential",
+      "title": "Evidential deep learning to quantify classification uncertainty",
+      "author": "Sensoy, Murat and Kaplan, Lance and Kandemir, Melih",
+      "year": "2018",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5555555555555556,
+      "real_title": "Evidential Fuzzy Rule-Based Machine Learning to Quantify Classification Uncertainty",
+      "real_doi": "10.1145/3712255.3734234"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "charpentier2020posterior",
+      "title": "Posterior network: Uncertainty estimation without {OOD} ensembles via {Dirichlet} density estimation",
+      "author": "Charpentier, Bertrand and Z{\\\"u}gner, Daniel and G{\\\"u}nnemann, Stephan",
+      "year": "2020",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5,
+      "real_title": "Posterior consistency of Dirichlet mixtures in density estimation",
+      "real_doi": "10.1214/aos/1018031105"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "gal2016dropout",
+      "title": "Dropout as a {Bayesian} approximation: Representing model uncertainty in deep learning",
+      "author": "Gal, Yarin and Ghahramani, Zoubin",
+      "year": "2016",
+      "doi": "",
+      "journal": "International Conference on Machine Learning (ICML)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5555555555555556,
+      "real_title": "Uncertainty estimation in AVO inversion using Bayesian dropout based deep learning",
+      "real_doi": "10.1016/j.petrol.2021.109288"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "lakshminarayanan2017simple",
+      "title": "Simple and scalable predictive uncertainty estimation using deep ensembles",
+      "author": "Lakshminarayanan, Balaji and Pritzel, Alexander and Blundell, Charles",
+      "year": "2017",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.625,
+      "real_title": "Flood Uncertainty Estimation Using Deep Ensembles",
+      "real_doi": "10.3390/w14192980"
+    }
+  },
+  {
+    "entry": {
+      "type": "book",
+      "key": "vovk2005algorithmic",
+      "title": "Algorithmic Learning in a Random World",
+      "author": "Vovk, Vladimir and Gammerman, Alex and Shafer, Glenn",
+      "year": "2005",
+      "doi": "10.1007/b106715",
+      "journal": "",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Algorithmic Learning in a Random World",
+      "doi": "10.1007/b106715"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "angelopoulos2021gentle",
+      "title": "A gentle introduction to conformal prediction and distribution-free uncertainty quantification",
+      "author": "Angelopoulos, Anastasios N and Bates, Stephen",
+      "year": "2023",
+      "doi": "10.1561/2200000109",
+      "journal": "Foundations and Trends in Machine Learning",
+      "url": ""
+    },
+    "status": "REAL_PAPER_WRONG_DOI",
+    "details": {
+      "best_sim": 0.75,
+      "real_title": "A Tutorial on Distribution-Free Uncertainty Quantification Using Conformal Prediction",
+      "real_doi": "10.1177/25152459251380452",
+      "provided_doi": "10.1561/2200000109"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "tibshirani2019conformal",
+      "title": "Conformal prediction under covariate shift",
+      "author": "Tibshirani, Ryan J and Foygel Barber, Rina and Cand{\\`e}s, Emmanuel and Ramdas, Aaditya",
+      "year": "2019",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.8333333333333334,
+      "real_title": "Generative Conformal Prediction Under Covariate Shift",
+      "real_doi": "10.1080/10618600.2026.2703276"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "feldman2021individual",
+      "title": "Individual-conditional risk bounds for conformal prediction sets",
+      "author": "Feldman, Shai and Bates, Stephen and Romano, Yaniv",
+      "year": "2023",
+      "doi": "10.1093/imaiai/iaad030",
+      "journal": "Information and Inference: A Journal of the IMA",
+      "url": ""
+    },
+    "status": "DOI_MISMATCH",
+    "details": {
+      "sim": 0.0,
+      "bib_title": "Individual-conditional risk bounds for conformal prediction sets",
+      "actual_title": "Private quantiles estimation in the presence of atoms",
+      "doi": "10.1093/imaiai/iaad030"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "sundararajan2017axiomatic",
+      "title": "Axiomatic attribution for deep networks",
+      "author": "Sundararajan, Mukund and Taly, Ankur and Yan, Qiqi",
+      "year": "2017",
+      "doi": "",
+      "journal": "International Conference on Machine Learning (ICML)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5,
+      "real_title": "Axiomatic attribution for multilinear functions",
+      "real_doi": "10.1145/1993574.1993601"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "lundberg2017unified",
+      "title": "A unified approach to interpreting model predictions",
+      "author": "Lundberg, Scott M and Lee, Su-In",
+      "year": "2017",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5,
+      "real_title": "Asymmetric feature interaction for interpreting model predictions",
+      "real_doi": "10.18653/v1/2023.findings-acl.286"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "shokri2017membership",
+      "title": "Membership inference attacks against machine learning models",
+      "author": "Shokri, Reza and Stronati, Marco and Song, Congzheng and Shmatikov, Vitaly",
+      "year": "2017",
+      "doi": "10.1109/SP.2017.41",
+      "journal": "IEEE Symposium on Security and Privacy (S\\&P)",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Membership Inference Attacks Against Machine Learning Models",
+      "doi": "10.1109/SP.2017.41"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "yeom2018privacy",
+      "title": "Privacy risk in machine learning: Analyzing the connection to overfitting",
+      "author": "Yeom, Samuel and Giacomelli, Irene and Fredrikson, Matt and Jha, Somesh",
+      "year": "2018",
+      "doi": "10.1109/CSF.2018.00027",
+      "journal": "IEEE 31st Computer Security Foundations Symposium (CSF)",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Privacy Risk in Machine Learning: Analyzing the Connection to Overfitting",
+      "doi": "10.1109/CSF.2018.00027"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "hardt2016equality",
+      "title": "Equality of opportunity in supervised learning",
+      "author": "Hardt, Moritz and Price, Eric and Srebro, Nati",
+      "year": "2016",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5,
+      "real_title": "Equality of Opportunity versus Equality of Opportunity Sets",
+      "real_doi": "10.1007/s00355-006-0165-4"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "zemel2013learning",
+      "title": "Learning fair representations",
+      "author": "Zemel, Rich and Wu, Yu and Swersky, Kevin and Pitassi, Toni and Dwork, Cynthia",
+      "year": "2013",
+      "doi": "",
+      "journal": "International Conference on Machine Learning (ICML)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.75,
+      "real_title": "Learning fair models and representations",
+      "real_doi": "10.3233/ia-190034"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "kolouri2019generalized",
+      "title": "Generalized sliced {Wasserstein} distances",
+      "author": "Kolouri, Soheil and Nadjahi, Kimia and Simsekli, Umut and Badeau, Roland and Rohde, Gustavo K",
+      "year": "2019",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.6,
+      "real_title": "Sharp Bounds for Max-sliced Wasserstein Distances",
+      "real_doi": "10.1007/s10208-025-09690-1"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "bonneel2015sliced",
+      "title": "Sliced and Radon {Wasserstein} barycenters of measures",
+      "author": "Bonneel, Nicolas and Rabin, Julien and Peyr{\\'e",
+      "year": "2015",
+      "doi": "10.1007/s10851-014-0506-3",
+      "journal": "Journal of Mathematical Imaging and Vision",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Sliced and Radon Wasserstein Barycenters of Measures",
+      "doi": "10.1007/s10851-014-0506-3"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "rabin2012wasserstein",
+      "title": "Wasserstein barycenter and its application to texture mixing",
+      "author": "Rabin, Julien and Peyr{\\'e",
+      "year": "2012",
+      "doi": "10.1007/978-3-642-24785-9_37",
+      "journal": "Scale Space and Variational Methods in Computer Vision (SSVM)",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Wasserstein Barycenter and Its Application to Texture Mixing",
+      "doi": "10.1007/978-3-642-24785-9_37"
+    }
+  },
+  {
+    "entry": {
+      "type": "book",
+      "key": "barocas2019fairness",
+      "title": "Fairness and Machine Learning: Limitations and Opportunities",
+      "author": "Barocas, Solon and Hardt, Moritz and Narayanan, Arvind",
+      "year": "2019",
+      "doi": "",
+      "journal": "",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.6666666666666666,
+      "real_title": "Machine learning in cancer prognostication: Limitations and opportunities",
+      "real_doi": "10.1016/j.suronc.2024.102164"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "kelly2019key",
+      "title": "Key challenges for delivering clinical impact with artificial intelligence",
+      "author": "Kelly, Christopher J and Karthikesalingam, Alan and Suleyman, Mustafa and Corrado, Greg and King, Dominic",
+      "year": "2019",
+      "doi": "10.1186/s12916-019-1426-2",
+      "journal": "BMC Medicine",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Key challenges for delivering clinical impact with artificial intelligence",
+      "doi": "10.1186/s12916-019-1426-2"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "topol2019high",
+      "title": "High-performance medicine: the convergence of human and artificial intelligence",
+      "author": "Topol, Eric J",
+      "year": "2019",
+      "doi": "10.1038/s41591-018-0300-7",
+      "journal": "Nature Medicine",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "High-performance medicine: the convergence of human and artificial intelligence",
+      "doi": "10.1038/s41591-018-0300-7"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "kompa2021second",
+      "title": "Second opinion needed: communicating uncertainty in medical machine learning",
+      "author": "Kompa, Benjamin and Snoek, Jasper and Beam, Andrew L",
+      "year": "2021",
+      "doi": "10.1038/s41746-020-00367-3",
+      "journal": "npj Digital Medicine",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Second opinion needed: communicating uncertainty in medical machine learning",
+      "doi": "10.1038/s41746-020-00367-3"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "yeh2019infidelity",
+      "title": "On the (in)fidelity and sensitivity for explanations",
+      "author": "Yeh, Chih-Kuan and Hsieh, Cheng-Yu and Suggala, Arun and Inouye, David I and Ravikumar, Pradeep K",
+      "year": "2019",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5,
+      "real_title": "Children\u2019s sensitivity to circular explanations",
+      "real_doi": "10.1016/j.jecp.2007.10.007"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "romano2019conformalized",
+      "title": "Conformalized quantile regression",
+      "author": "Romano, Yaniv and Sesia, Matteo and Cand{\\`e}s, Emmanuel",
+      "year": "2019",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.75,
+      "real_title": "Conformalized Fairness Via Quantile Regression",
+      "real_doi": "10.52202/068431-0840"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "romano2020malice",
+      "title": "With malice toward none: Assessing uncertainty via equalized coverage",
+      "author": "Romano, Yaniv and Bates, Stephen and Cand{\\`e}s, Emmanuel",
+      "year": "2020",
+      "doi": "10.1162/99608f92.03f00592",
+      "journal": "Harvard Data Science Review",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "With Malice Toward None: Assessing Uncertainty via Equalized Coverage",
+      "doi": "10.1162/99608f92.03f00592"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "sesia2020conformal",
+      "title": "Conformal prediction using conditional histograms",
+      "author": "Sesia, Matteo and Romano, Yaniv and Cand{\\`e}s, Emmanuel",
+      "year": "2020",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.6,
+      "real_title": "Conformal prediction with conditional guarantees",
+      "real_doi": "10.1093/jrsssb/qkaf008"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "gibbs2023conformal",
+      "title": "Conformal prediction with conditional guarantees",
+      "author": "Gibbs, Isaac and Cherian, John and Cand{\\`e}s, Emmanuel J",
+      "year": "2025",
+      "doi": "10.1093/jrsssb/qkaf008",
+      "journal": "Journal of the Royal Statistical Society Series B: Statistical Methodology",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Conformal prediction with conditional guarantees",
+      "doi": "10.1093/jrsssb/qkaf008"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "angelopoulos2021private",
+      "title": "Private prediction sets",
+      "author": "Angelopoulos, Anastasios N and Bates, Stephen and Cand{\\`e}s, Emmanuel and Jordan, Michael I and Romano, Yaniv",
+      "year": "2022",
+      "doi": "10.1162/99608f92.16c71dad",
+      "journal": "Harvard Data Science Review",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Private Prediction Sets",
+      "doi": "10.1162/99608f92.16c71dad"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "bengs2022pitfalls",
+      "title": "Pitfalls of epistemic uncertainty quantification through loss minimisation",
+      "author": "Bengs, Viktor and H{\\\"u}llermeier, Eyke and Waegeman, Willem",
+      "year": "2022",
+      "doi": "",
+      "journal": "Advances in Neural Information Processing Systems (NeurIPS)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 1.0,
+      "real_title": "Pitfalls of Epistemic Uncertainty Quantification Through Loss Minimisation",
+      "real_doi": "10.52202/068431-2118"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "antoran2021clue",
+      "title": "Getting a {CLUE}: A method for explaining uncertainty estimates",
+      "author": "Antor{\\'a}n, Javier and Bhatt, Umang and Adel, Tameem and Weller, Adrian and Hern{\\'a}ndez-Lobato, Jos{\\'e} Miguel",
+      "year": "2021",
+      "doi": "",
+      "journal": "International Conference on Learning Representations (ICLR)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5,
+      "real_title": "EXPLAINING UNCERTAINTY ESTIMATES BASED ON GENERATIVE MODELS",
+      "real_doi": "10.5121/ijaia.2026.17404"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "perez2022attribution",
+      "title": "Attribution of predictive uncertainties in classification models",
+      "author": "Perez, Iker and Skalski, Piotr and Barns-Graham, Alec and Wong, Jason and Sutton, David",
+      "year": "2022",
+      "doi": "",
+      "journal": "Proceedings of the 38th Conference on Uncertainty in Artificial Intelligence (UAI)",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.6,
+      "real_title": "Model Assessment for Predictive Classification Models",
+      "real_doi": "10.1080/03610920903243751"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "chouldechova2017fair",
+      "title": "Fair prediction with disparate impact: A study of bias in recidivism prediction instruments",
+      "author": "Chouldechova, Alexandra",
+      "year": "2017",
+      "doi": "10.1089/big.2016.0047",
+      "journal": "Big Data",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Fair Prediction with Disparate Impact: A Study of Bias in Recidivism Prediction Instruments",
+      "doi": "10.1089/big.2016.0047"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "kleinberg2016inherent",
+      "title": "Inherent trade-offs in the fair determination of risk scores",
+      "author": "Kleinberg, Jon and Mullainathan, Sendhil and Raghavan, Manish",
+      "year": "2017",
+      "doi": "10.4230/LIPIcs.ITCS.2017.43",
+      "journal": "Innovations in Theoretical Computer Science (ITCS)",
+      "url": ""
+    },
+    "status": "REAL_PAPER_WRONG_DOI",
+    "details": {
+      "best_sim": 0.7142857142857143,
+      "real_title": "Inherent Tradeoffs in the Fair Determination of Risk Scores",
+      "real_doi": "10.1145/3603195.3603206",
+      "provided_doi": "10.4230/LIPIcs.ITCS.2017.43"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "dwork2014algorithmic",
+      "title": "The algorithmic foundations of differential privacy",
+      "author": "Dwork, Cynthia and Roth, Aaron",
+      "year": "2014",
+      "doi": "10.1561/0400000042",
+      "journal": "Foundations and Trends in Theoretical Computer Science",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "The Algorithmic Foundations of Differential Privacy",
+      "doi": "10.1561/0400000042"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "kaissis2020secure",
+      "title": "Secure, privacy-preserving and federated machine learning in medical imaging",
+      "author": "Kaissis, Georgios A and Makowski, Marcus R and R{\\\"u}ckert, Daniel and Braren, Rickmer F",
+      "year": "2020",
+      "doi": "10.1038/s42256-020-0186-1",
+      "journal": "Nature Machine Intelligence",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Secure, privacy-preserving and federated machine learning in medical imaging",
+      "doi": "10.1038/s42256-020-0186-1"
+    }
+  },
+  {
+    "entry": {
+      "type": "article",
+      "key": "hullermeier2021aleatoric",
+      "title": "Aleatoric and epistemic uncertainty in machine learning: An introduction to concepts and methods",
+      "author": "H{\\\"u}llermeier, Eyke and Waegeman, Willem",
+      "year": "2021",
+      "doi": "10.1007/s10994-021-05946-3",
+      "journal": "Machine Learning",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Aleatoric and epistemic uncertainty in machine learning: an introduction to concepts and methods",
+      "doi": "10.1007/s10994-021-05946-3"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "patel2022towards",
+      "title": "Towards differentially private explanations of machine learning models",
+      "author": "Patel, Nisarg and Shokri, Reza and Wang, Yair",
+      "year": "2023",
+      "doi": "10.1109/SaTML54575.2023.00010",
+      "journal": "IEEE Conference on Secure and Trustworthy Machine Learning (SaTML)",
+      "url": ""
+    },
+    "status": "DOI_MISMATCH",
+    "details": {
+      "sim": 0.0,
+      "bib_title": "Towards differentially private explanations of machine learning models",
+      "actual_title": "Sponsors: SaTML 2023",
+      "doi": "10.1109/SaTML54575.2023.00010"
+    }
+  },
+  {
+    "entry": {
+      "type": "inproceedings",
+      "key": "carlini2022membership",
+      "title": "Membership inference attacks from first principles",
+      "author": "Carlini, Nicholas and Chien, Steve and Nasr, Milad and Song, Shuang and Terzis, Andreas and Tram{\\`e}r, Florian",
+      "year": "2022",
+      "doi": "10.1109/SP46214.2022.9833649",
+      "journal": "IEEE Symposium on Security and Privacy (S\\&P)",
+      "url": ""
+    },
+    "status": "VERIFIED_OK",
+    "details": {
+      "sim": 1.0,
+      "actual_title": "Membership Inference Attacks From First Principles",
+      "doi": "10.1109/SP46214.2022.9833649"
+    }
+  },
+  {
+    "entry": {
+      "type": "misc",
+      "key": "fda2021gmlp",
+      "title": "Good Machine Learning Practice for Medical Device Development: Guiding Principles",
+      "author": "{U.S. Food and Drug Administration and Health Canada and UK Medicines and Healthcare products Regulatory Agency}",
+      "year": "2021",
+      "doi": "",
+      "journal": "",
+      "url": ""
+    },
+    "status": "NO_DOI_NOT_FOUND",
+    "details": {
+      "best_sim": 0.4444444444444444
+    }
+  },
+  {
+    "entry": {
+      "type": "misc",
+      "key": "fda2024pccp",
+      "title": "Predetermined Change Control Plans for Medical Devices: Guidance for Industry and Food and Drug Administration Staff",
+      "author": "{U.S. Food and Drug Administration}",
+      "year": "2024",
+      "doi": "",
+      "journal": "",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5,
+      "real_title": "Use and Public Reporting of Predetermined Change Control Plans for AI-Enabled Medical Devices",
+      "real_doi": "10.1001/jamahealthforum.2026.1204"
+    }
+  },
+  {
+    "entry": {
+      "type": "misc",
+      "key": "euaiact2024",
+      "title": "Regulation ({EU}) 2024/1689 of the {European} {Parliament} and of the {Council} of 13 {June} 2024 laying down harmonised rules on artificial intelligence ({Artificial} {Intelligence} {Act})",
+      "author": "{European Parliament and Council of the European Union}",
+      "year": "2024",
+      "doi": "",
+      "journal": "",
+      "url": ""
+    },
+    "status": "VERIFIED_FOUND_ONLINE",
+    "details": {
+      "best_sim": 0.5384615384615384,
+      "real_title": "Regulation 2024/1689 of the Eur. Parl. &amp; Council of June 13, 2024 (EU Artificial Intelligence Act)",
+      "real_doi": "10.1017/ilm.2024.46"
+    }
+  }
+]
