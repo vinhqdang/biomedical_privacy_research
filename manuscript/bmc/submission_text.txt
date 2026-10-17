@@ -2,8 +2,8 @@ TITLE
 TRACER-Med: differentially private evidential learning with prototype alignment and conformal prediction for clinical risk prediction
 
 AUTHORS
-Quang-Vinh Dang (corresponding author), British University Vietnam, Hung Yen, Vietnam. vinh.dq4@buv.edu.vn
-Dat Le, Ho Chi Minh City University of Economics and Finance, Ho Chi Minh City, Vietnam. datla@uef.edu.vn
+Quang-Vinh Dang (submitting author), British University Vietnam, Hung Yen, Vietnam. vinh.dq4@buv.edu.vn
+Dat Le (corresponding author), Ho Chi Minh City University of Economics and Finance, Ho Chi Minh City, Vietnam. datla@uef.edu.vn
 Minh Ngoc Dinh, Millennia Education, Ho Chi Minh City, Vietnam. minh.dinh@maeducation.com
 
 ABSTRACT
