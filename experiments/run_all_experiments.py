@@ -325,8 +325,8 @@ def main():
     print(f"\nSaved all experimental benchmark metrics to {out_csv} and {out_json}")
     
     # Generate publication figures
-    generate_publication_figures(df_results, models3, splits3, feats3, out_dir="figures")
-    generate_publication_figures(df_results, models3, splits3, feats3, out_dir="manuscript/figures")
+    from experiments.make_figures import make_all
+    make_all()
     
     total_min = (time.time() - start_time) / 60.0
     print(f"\n=======================================================")

@@ -1,5 +1,5 @@
 %% BMC Medical Informatics and Decision Making: Springer Nature template (sn-jnl), numbered Vancouver reference style.
-\documentclass[pdflatex,sn-vancouver-num]{sn-jnl}
+\documentclass[pdflatex,sn-vancouver-num,referee,lineno]{sn-jnl}
 
 \usepackage{graphicx}
 \usepackage{multirow}
@@ -120,7 +120,7 @@ The methodological novelty of this article lies in the coupling of these compone
 
 \begin{table}[t]
 \centering
-\caption{Coverage of the three trilemma requirements and explanation type by representative method families. A check mark indicates that the requirement is addressed by the cited method; a dash indicates that it is not.}
+\caption{Requirements addressed by representative method families}
 \label{tab:positioning}
 \small
 \begin{tabular}{lcccc}
@@ -136,6 +136,7 @@ Integrated Gradients~\cite{sundararajan2017axiomatic} & -- & -- & -- & -- \\
 \textbf{TRACER-Med (this work)} & \checkmark & \checkmark & \checkmark & \checkmark \\
 \bottomrule
 \end{tabular}
+\par\vspace{3pt}\noindent{\footnotesize A check mark means that the cited method addresses the requirement and a dash means that it does not.}
 \end{table}
 
 \section{Methods}
@@ -509,7 +510,7 @@ Each model is evaluated across six quantitative dimensions:
 \end{enumerate}
 
 \subsubsection{Implementation and Computational Protocol}
-All models were implemented in PyTorch (CPU execution). Backbones have two hidden layers (64 and 32 units; about $4{,}200$ parameters) with LayerNorm and LeakyReLU activations ($\nu = 0.1$). Optimization used Adam ($\eta = 5 \times 10^{-3}$, weight decay $10^{-4}$) with expected batch size $32$ for Statlog Heart and Pima Diabetes ($20$ epochs) and $128$ for the two larger cohorts ($12$ epochs). Private models use Poisson subsampling with probability $q = |\mathcal{B}|/N_{\text{train}}$ and the exact Poisson-subsampled Gaussian R\'enyi accountant of Mironov et al.~\cite{mironov2019renyi} at integer orders $2,\dots,128$ (checked against the Opacus implementation to relative error below $10^{-12}$), with base clipping $C_0=1.0$, noise multiplier $\sigma_{\text{DP}}=0.8$, and $\delta = 10^{-5}$. This gives $\epsilon = 27.7$ on Heart, $17.5$ on Pima, $5.2$ on the readmission cohort, and $7.3$ on the simulated EHR cohort for DP-SGD, and slightly more for TRACER-Med ($28.2$, $18.0$, $5.8$, $8.0$) because of the group-statistics releases. Budgets above about $10$ are weak, and Section~\ref{sec:sweep} varies the noise multiplier from $0.8$ to $3.0$. Conformal calibration used $\alpha_{\text{conf}} = 0.10$, $\beta_{\text{conf}} = 0.05$, $M_{\text{bins}} = 20$, and $\epsilon_{\text{conf}} = 1.0$, which is separate from the training budget. Each model was trained on three random stratified train/calibration/test splits ($55\%/20\%/25\%$; seeds 42, 43, 44, with the training random number generators seeded identically), and we report the mean and standard deviation over these splits; the noise sweep also uses three splits. With three splits the standard deviations are rough indicators, and differences smaller than one standard deviation should not be read as significant. Feature standardization and imputation use training-set statistics and are not privatized. The code, the result files, and the numerical checks of Section~\ref{sec:verification} are in the repository listed under Data and Code Availability.
+All models were implemented in PyTorch (CPU execution). Backbones have two hidden layers (64 and 32 units; about $4{,}200$ parameters) with LayerNorm and LeakyReLU activations ($\nu = 0.1$). Optimization used Adam ($\eta = 5 \times 10^{-3}$, weight decay $10^{-4}$) with expected batch size $32$ for Statlog Heart and Pima Diabetes ($20$ epochs) and $128$ for the two larger cohorts ($12$ epochs). Private models use Poisson subsampling with probability $q = |\mathcal{B}|/N_{\text{train}}$ and the exact Poisson-subsampled Gaussian R\'enyi accountant of Mironov et al.~\cite{mironov2019renyi} at integer orders $2,\dots,128$ (checked against the Opacus implementation to relative error below $10^{-12}$), with base clipping $C_0=1.0$, noise multiplier $\sigma_{\text{DP}}=0.8$, and $\delta = 10^{-5}$. This gives $\epsilon = 27.7$ on Heart, $17.5$ on Pima, $5.2$ on the readmission cohort, and $7.3$ on the simulated EHR cohort for DP-SGD, and slightly more for TRACER-Med ($28.2$, $18.0$, $5.8$, $8.0$) because of the group-statistics releases. Budgets above about $10$ are weak, and Section~\ref{sec:sweep} varies the noise multiplier from $0.8$ to $3.0$. Conformal calibration used $\alpha_{\text{conf}} = 0.10$, $\beta_{\text{conf}} = 0.05$, $M_{\text{bins}} = 20$, and $\epsilon_{\text{conf}} = 1.0$, which is separate from the training budget. Each model was trained on three random stratified train/calibration/test splits ($55\%/20\%/25\%$; seeds 42, 43, 44, with the training random number generators seeded identically), and we report the mean and standard deviation over these splits; the noise sweep also uses three splits. With three splits the standard deviations are rough indicators, and differences smaller than one standard deviation should not be read as significant. Feature standardization and imputation use training-set statistics and are not privatized. All means and standard deviations of every metric are given in Additional file 1 and the sweep results in Additional file 2; the code and the numerical checks of Section~\ref{sec:verification} are described under Availability of data and materials.
 
 \section{Results}
 \label{sec:results}
@@ -520,7 +521,7 @@ The benchmark results across the four cohorts are summarized in Table~\ref{tab:m
 \begin{sidewaystable}
 \centering
 \small
-\caption{Main results on four cohorts (mean $\pm$ std over 3 random splits; privacy columns are $\epsilon$ at $\delta=10^{-5}$). Non-private models are listed first. Bold marks the best value among the five private rows with comparable $\epsilon$ (DP-SGD, DPSGD-F, PF-LD with matched $\epsilon$, DP-EDL, TRACER-Med); the PF-LD row at $\sigma=0.8$ spends a larger budget and is not bolded. Cov. is the marginal empirical coverage of the plug-in private conformal sets (nominal $0.90$) and Set the average set size; $^\dagger$ marks coverage below $0.85$. $\Delta_{\text{SP}}$ and $\Delta_{\text{EO}}$ use the calibration-split operating point.}
+\caption{Main results on four cohorts}
 \label{tab:main_results}
 \begingroup\scriptsize\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{lcccccccc}
@@ -549,7 +550,7 @@ PF-LD, adapted, $\sigma=0.8$~\cite{tran2021differentially} & 54.8 & $0.798 \pm 0
 DP-EDL & 17.5 & $0.812 \pm 0.020$ & $\mathbf{0.117} \pm \mathbf{0.005}$ & $0.398 \pm 0.037$ & $0.266 \pm 0.048$ & $0.529 \pm 0.010$ & $0.91$ & $1.58$ \\
 \textbf{TRACER-Med} & 18.0 & $\mathbf{0.820} \pm \mathbf{0.017}$ & $0.133 \pm 0.015$ & $0.400 \pm 0.040$ & $0.264 \pm 0.031$ & $0.510 \pm 0.004$ & $0.92$ & $1.71$ \\
 \midrule
-\multicolumn{9}{l}{\emph{Diabetes 130-US Hospitals, real ($N=20{,}000$, 30-day readmission, protected: race)}} \\
+\multicolumn{9}{l}{\emph{Diabetes 130-US Hospitals, real ($N=20\,000$, 30-day readmission, protected: race)}} \\
 Standard ERM & $\infty$ & $0.597 \pm 0.016$ & $0.018 \pm 0.006$ & $0.044 \pm 0.031$ & $0.074 \pm 0.025$ & $0.510 \pm 0.001$ & $0.91$ & $1.00$ \\
 Fair-ERM & $\infty$ & $0.623 \pm 0.011$ & $0.009 \pm 0.004$ & $0.038 \pm 0.027$ & $0.080 \pm 0.023$ & $0.504 \pm 0.001$ & $0.91$ & $1.00$ \\
 Standard EDL & $\infty$ & $0.612 \pm 0.011$ & $0.005 \pm 0.002$ & $0.059 \pm 0.037$ & $0.106 \pm 0.026$ & $0.507 \pm 0.002$ & $0.91$ & $1.00$ \\
@@ -560,7 +561,7 @@ PF-LD, adapted, $\sigma=0.8$~\cite{tran2021differentially} & 31.3 & $0.559 \pm 0
 DP-EDL & 5.2 & $\mathbf{0.626} \pm \mathbf{0.003}$ & $0.039 \pm 0.001$ & $0.054 \pm 0.023$ & $0.084 \pm 0.034$ & $\mathbf{0.499} \pm \mathbf{0.002}$ & $0.91$ & $1.00$ \\
 \textbf{TRACER-Med} & 5.8 & $0.601 \pm 0.001$ & $\mathbf{0.011} \pm \mathbf{0.009}$ & $0.042 \pm 0.032$ & $0.047 \pm 0.036$ & $0.501 \pm 0.002$ & $0.91$ & $1.00$ \\
 \midrule
-\multicolumn{9}{l}{\emph{Simulated inpatient EHR cohort ($N=10{,}000$, protected: demographic cohort)}} \\
+\multicolumn{9}{l}{\emph{Simulated inpatient EHR cohort ($N=10\,000$, protected: demographic cohort)}} \\
 Standard ERM & $\infty$ & $0.736 \pm 0.007$ & $0.051 \pm 0.012$ & $0.018 \pm 0.006$ & $0.049 \pm 0.015$ & $0.537 \pm 0.004$ & $0.90$ & $1.52$ \\
 Fair-ERM & $\infty$ & $0.743 \pm 0.003$ & $0.036 \pm 0.011$ & $0.016 \pm 0.002$ & $0.051 \pm 0.010$ & $0.521 \pm 0.003$ & $0.89$ & $1.51$ \\
 Standard EDL & $\infty$ & $0.739 \pm 0.004$ & $0.035 \pm 0.008$ & $0.027 \pm 0.011$ & $0.064 \pm 0.021$ & $0.529 \pm 0.004$ & $0.89$ & $1.51$ \\
@@ -573,10 +574,11 @@ DP-EDL & 7.3 & $0.746 \pm 0.004$ & $0.147 \pm 0.003$ & $0.021 \pm 0.010$ & $0.04
 \bottomrule
 \end{tabular}
 \endgroup
+\par\vspace{3pt}\noindent{\footnotesize Mean $\pm$ std over three random splits; $\epsilon$ is the privacy budget at $\delta=10^{-5}$. Non-private models are listed first. Bold marks the best value among the five private rows with comparable $\epsilon$ (DP-SGD, DPSGD-F, PF-LD with matched $\epsilon$, DP-EDL, TRACER-Med); the PF-LD row at $\sigma=0.8$ spends a larger budget and is not bolded. Cov. is the marginal empirical coverage of the plug-in private conformal sets (nominal $0.90$) and Set their average size; $^\dagger$ marks coverage below $0.85$. $\Delta_{\text{SP}}$ and $\Delta_{\text{EO}}$ use the calibration-split operating point.}
 \end{sidewaystable}
 
 \subsection{Privacy--Fairness Trade-off}
-Table~\ref{tab:main_results} supports the following observations, each stated with its caveats.
+Table~\ref{tab:main_results} and Figure~\ref{fig:utility_fairness} support the following observations, each stated with its caveats.
 \begin{itemize}
     \item \textbf{TRACER-Med does not improve Equalized Odds.} On Statlog Heart, $\Delta_{\text{EO}}$ is $0.154$ for TRACER-Med against $0.103$ for DP-SGD, $0.138$ for DPSGD-F, and $0.117$ for DP-EDL; on Pima it is $0.264$ against $0.221$--$0.266$; on the real readmission cohort $0.047$ against $0.077$ (DP-SGD), $0.064$ (DPSGD-F), and $0.084$ (DP-EDL); and on the simulated EHR cohort $0.047$ against $0.045$--$0.049$. Only the readmission difference favors TRACER-Med, with disparities of this size ($<0.1$) on $5{,}000$ test patients and three splits.
     \item \textbf{A fairness-constrained baseline reduces disparity more.} The PF-LD adaptation lowers disparity clearly on Pima, with $\Delta_{\text{EO}} = 0.112$ and $\Delta_{\text{SP}} = 0.226$ at matched $\epsilon$ ($0.092$ and $0.219$ at $\sigma=0.8$ and a larger budget), against $0.264$ and $0.400$ for TRACER-Med, at a cost of $0.036$ ROC-AUC. On Statlog Heart it reduces $\Delta_{\text{SP}}$ at the larger budget ($0.207$) but not at matched $\epsilon$ ($0.288$). On the real readmission cohort its matched-$\epsilon$ model is close to chance ($\text{ROC-AUC}=0.524$), so its lowest disparities ($\Delta_{\text{EO}}=0.043$) are not informative.
@@ -588,8 +590,9 @@ Table~\ref{tab:main_results} supports the following observations, each stated wi
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/fig1_utility_vs_fairness.pdf}
-\caption{Clinical Utility (ROC-AUC) versus Algorithmic Fairness Disparity ($\Delta_{\text{SP}}$) across the four benchmarks. ROC-AUC versus statistical parity disparity on the three benchmarks; parity disparity does not separate the private models consistently.}
+\caption{ROC-AUC against equalized-odds disparity on four cohorts}
 \label{fig:utility_fairness}
+\par\vspace{3pt}\noindent{\footnotesize Points are means over three random splits and bars are one standard deviation. Lower disparity and higher ROC-AUC are better. Private models use $\sigma_{\text{DP}}=0.8$.}
 \end{figure}
 
 \subsection{Conformal Coverage and Vacuity}
@@ -606,8 +609,9 @@ Private conformal prediction therefore remains difficult at these sample sizes, 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.88\linewidth]{figures/fig2_conformal_subgroup_coverage.pdf}
-\caption{Conformal Calibration and Subgroup Coverage Equity on the Simulated Clinical EHR Cohort at nominal 90\% target coverage. Empirical coverage by demographic group for the evaluated models.}
+\caption{Coverage of plug-in conformal sets on the simulated cohort}
 \label{fig:conformal_coverage}
+\par\vspace{3pt}\noindent{\footnotesize Marginal coverage and coverage gap between the two groups. The dashed line is the nominal coverage $0.90$; bars are means over three random splits.}
 \end{figure}
 
 \subsection{Empirical Privacy Leakage Auditing}
@@ -620,7 +624,7 @@ Table~\ref{tab:sweep} varies the noise multiplier over $0.8$, $1.5$, and $3.0$ f
 \begin{sidewaystable}
 \centering
 \small
-\caption{Noise-multiplier sweep (mean over three splits): ROC-AUC and $\Delta_{\text{EO}}$ for DP-SGD, DPSGD-F, PF-LD (adapted), DP-EDL, and TRACER-Med. $\epsilon$ is that of DP-SGD at $\delta = 10^{-5}$.}
+\caption{Noise-multiplier sweep: ROC-AUC and equalized-odds disparity}
 \label{tab:sweep}
 \begingroup\scriptsize\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{llcccccccccc}
@@ -651,30 +655,33 @@ $\sigma_{\text{DP}}$ & $\epsilon$ & SGD & F & PF & EDL & TR & SGD & F & PF & EDL
 \bottomrule
 \end{tabular}
 \endgroup
+\par\vspace{3pt}\noindent{\footnotesize Mean over three splits for DP-SGD (SGD), DPSGD-F (F), PF-LD adapted (PF), DP-EDL (EDL), and TRACER-Med (TR). $\epsilon$ is that of DP-SGD at $\delta=10^{-5}$.}
 \end{sidewaystable}
 
 \subsection{Dual-Channel Dirichlet Attribution (DCDA)}
 Figure~\ref{fig:dual_xai} illustrates the attribution patterns generated by our Dual-Channel Dirichlet Attribution mechanism on representative inpatient deterioration episodes.
 \begin{itemize}
-    \item \textbf{Channel A (Diagnostic Risk Evidence):} Figure~\ref{fig:dual_xai} shows patient-specific attributions for six patients of the simulated cohort, relative to the training-mean baseline. For the first patient the largest positive contributions come from the Charlson comorbidity index ($0.41$), SOFA score ($0.20$), SpO$_2$ ($0.17$), and lactate ($0.11$). For the other five patients the attributions are smaller and of mixed sign, so the heatmap does not show one consistent set of drivers. We did not compare the attributions with clinical judgement or with the generating function of the simulation.
-    \item \textbf{Channel B (Epistemic Doubt):} The attributions of the epistemic mutual information are small ($|\Phi^{\text{doubt}}_j| \le 0.02$ nats) and patient specific; for example SOFA score contributes about $+0.02$ for the sixth patient and age and lactate about $+0.01$ for the fifth. We have not evaluated whether these attributions help clinicians, and the clinical readings suggested earlier for the two channels remain hypotheses.
+    \item \textbf{Channel A (Diagnostic Risk Evidence):} Figure~\ref{fig:dual_xai} shows patient-specific attributions for six test patients of the simulated cohort, relative to the training-mean baseline. The largest contributions differ by patient: the Charlson index ($0.36$) and lactate ($0.23$) for patient 1, SpO$_2$ ($0.17$) and creatinine ($-0.13$) for patient 2, the Charlson index ($0.62$), systolic blood pressure ($-0.36$), and age ($0.25$) for patient 3, and lactate ($0.44$) and SOFA score ($0.23$) for patient 5, whose observed outcome is $0$. The heatmap therefore does not show one consistent set of drivers, and for patients 4 and 6 the attributions are small ($|\Phi|\le 0.09$). We did not compare the attributions with clinical judgement or with the generating function of the simulation.
+    \item \textbf{Channel B (Epistemic Doubt):} The attributions of the epistemic mutual information are small ($|\Phi^{\text{doubt}}_j| \le 0.02$ nats) and patient specific; for example SpO$_2$ ($0.014$) and creatinine ($-0.011$) for patient 2, and age ($0.016$) and lactate ($-0.012$) for patient 4. We have not evaluated whether these attributions help clinicians, and the clinical readings suggested earlier for the two channels remain hypotheses.
 \end{itemize}
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\linewidth]{figures/fig3_dual_channel_attribution.pdf}
-\caption{Dual-Channel Dirichlet Attribution (DCDA) heatmaps for illustrative acute clinical deterioration cases. Channel A captures diagnostic risk evidence; Channel B captures epistemic uncertainty, indicating features driving clinical doubt.}
+\caption{Dual-channel attributions for six test patients of the simulated cohort}
 \label{fig:dual_xai}
+\par\vspace{3pt}\noindent{\footnotesize Rows are patients 1 to 3 with observed outcome 1 and patients 4 to 6 with observed outcome 0. Channel A is the attributed change in $\hat{p}_1$ and Channel B the attributed change in the epistemic mutual information (nats), both relative to the training-mean baseline; red is positive.}
 \end{figure}
 
-\subsection{Holistic Multi-Pillar Trustworthiness Profile}
-Figure~\ref{fig:trustworthiness_radar} illustrates the multi-pillar radar profiles comparing TRACER-Med with baseline paradigms across five core clinical trustworthiness dimensions: diagnostic discrimination (ROC-AUC), calibration (1 - ECE), algorithmic fairness equity (1 - $\Delta_{\text{EO}}$), empirical privacy resistance (1 - MIA AUC), and conformal coverage equity (1 - Cov. Gap). The profiles show a trade-off, not a resolution of the trilemma: calibration improves on the larger cohorts while fairness and conformal informativeness do not improve on the smaller ones.
+\subsection{Summary Across Metrics and Cohorts}
+Figure~\ref{fig:trustworthiness_radar} places five private models side by side on ROC-AUC, expected calibration error, equalized-odds disparity, and membership-inference AUC for all four cohorts. The pattern matches the tables: calibration error separates TRACER-Med from the other models on the two larger cohorts, equalized-odds disparity is lowest for the PF-LD adaptation on the two small cohorts, and the membership-inference AUCs differ only on the small cohorts. The figure shows a trade-off, not a resolution of the trilemma.
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=0.92\linewidth]{figures/fig4_trustworthiness_profile.pdf}
-\caption{Multi-pillar Trustworthiness Profile across clinical utility (ROC-AUC), calibration (1 - ECE), equalized odds equity (1 - $\Delta_{\text{EO}}$), empirical privacy resistance (1 - MIA AUC), and conformal coverage equity (1 - Cov. Gap). Comparison of TRACER-Med with ERM, DP-SGD, and Fair-ERM.}
+\caption{Four metrics for five private models on four cohorts}
 \label{fig:trustworthiness_radar}
+\par\vspace{3pt}\noindent{\footnotesize ROC-AUC, expected calibration error, equalized-odds disparity, and membership-inference AUC. Bars are means over three random splits at $\sigma_{\text{DP}}=0.8$.}
 \end{figure}
 
 \subsection{Ablation Studies}
@@ -687,7 +694,7 @@ Table~\ref{tab:ablation} removes one module at a time on the same splits at $\si
 
 \begin{sidewaystable}
 \centering
-\caption{Ablation analysis on the four benchmarks at $\sigma_{\text{DP}}=0.8$ (mean $\pm$ std over 3 random splits). Bold marks the best value within each benchmark among the four configurations. Cov. and Set are the coverage and average size of the plug-in conformal sets.}
+\caption{Ablation of TRACER-Med components on four cohorts}
 \label{tab:ablation}
 \begingroup\scriptsize\setlength{\tabcolsep}{2.5pt}
 \begin{tabular}{lccccccc}
@@ -720,6 +727,7 @@ Table~\ref{tab:ablation} removes one module at a time on the same splits at $\si
 \bottomrule
 \end{tabular}
 \endgroup
+\par\vspace{3pt}\noindent{\footnotesize Mean $\pm$ std over three random splits at $\sigma_{\text{DP}}=0.8$. Bold marks the best value within each cohort among the four configurations. Cov. and Set are the coverage and average size of the plug-in conformal sets.}
 \end{sidewaystable}
 
 \subsection{Numerical Verification of the Analytical Statements}
@@ -767,6 +775,12 @@ Deploying trustworthy artificial intelligence in healthcare requires balancing t
 \section*{List of abbreviations}
 \noindent AUC: area under the receiver operating characteristic curve; DCDA: dual-channel Dirichlet attribution; DP: differential privacy; DP-EDL: evidential deep learning trained with DP-SGD; DP-GCCP: differentially private group-conditional conformal prediction; DP-SGD: differentially private stochastic gradient descent; ECE: expected calibration error; EO: equalized odds; MIA: membership inference attack; PC-PAT: privatized class-conditional prototypical anchor transport; PF-LD: private and fair Lagrangian dual; RDP: R\'enyi differential privacy; REF-DP: Riemannian evidential-Fisher subgroup-calibrated DP-SGD; SP: statistical parity.
 
+
+\section*{Supplementary information}
+\noindent\textbf{Additional file 1.} File name: additional\_file\_1.csv. Format: .csv. Title: Main benchmark results. Description: Means and standard deviations over three random splits of every metric (utility, calibration, fairness, membership inference, conformal coverage, set size, attribution infidelity) and the privacy budget for every model and cohort, including the ablations.
+
+\noindent\textbf{Additional file 2.} File name: additional\_file\_2.csv. Format: .csv. Title: Noise-multiplier sweep. Description: Means and standard deviations over three random splits of the metrics for DP-SGD, DPSGD-F, PF-LD (adapted), DP-EDL, and TRACER-Med at noise multipliers 0.8, 1.5, and 3.0, with the privacy budget of each cell.
+
 \section*{Declarations}
 
 \bmhead{Ethics approval and consent to participate}
@@ -776,7 +790,9 @@ Not applicable. This study is a secondary analysis of publicly available, de-ide
 Not applicable.
 
 \bmhead{Availability of data and materials}
-The source code, benchmark preparation scripts, the synthetic data generator, result files, and numerical checks are available at \url{https://github.com/vinhqdang/biomedical_privacy_research}. The Statlog Heart Disease and Pima Indians Diabetes data are available from OpenML (IDs 53 and 37), and the Diabetes 130-US Hospitals data from the UCI Machine Learning Repository (downloaded by the data loader). The simulated cohort is generated by the released code.
+The datasets supporting the conclusions of this article are available in the UCI Machine Learning Repository (Diabetes 130-US Hospitals, doi:10.24432/C5230J \cite{uci_diabetes130}; Statlog Heart, doi:10.24432/C57303 \cite{uci_statlog_heart}) and in the OpenML repository (Pima Indians Diabetes \cite{openml_pima}; Statlog Heart \cite{openml_heart}). The simulated cohort is generated by the project code. The result files underlying all tables and figures are included within the article as Additional files 1 and 2.
+
+Software: Project name: TRACER-Med. Project home page: \cite{tracermed_code}. Archived version: Git commit COMMITHASH of the repository in \cite{tracermed_code}. Operating system: platform independent (tested on Linux). Programming language: Python 3. Other requirements: PyTorch (2.x), NumPy, pandas, scikit-learn, SciPy, matplotlib, seaborn; Opacus is needed only for one numerical check. License: BSD-3-Clause. Any restrictions to use by non-academics: none.
 
 \bmhead{Competing interests}
 The author declares that there are no competing interests.
