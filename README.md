@@ -25,6 +25,7 @@
 biomedical_privacy_research/
 ├── manuscript/                  # Elsevier LaTeX manuscript & compiled PDF
 │   ├── main.tex                 # Manuscript source (elsarticle format)
+│   ├── bmc/                     # BMC Medical Informatics and Decision Making version (Springer Nature template)
 │   ├── references.bib           # Complete bibliography with DOIs (up to Oct-2026)
 │   ├── main.pdf                 # Compiled 26-page publication-ready PDF
 │   ├── main.bbl                 # Pre-compiled bibliography

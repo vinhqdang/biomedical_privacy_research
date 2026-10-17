@@ -1,0 +1,798 @@
+%% BMC Medical Informatics and Decision Making: Springer Nature template (sn-jnl), numbered Vancouver reference style.
+\documentclass[pdflatex,sn-vancouver-num]{sn-jnl}
+
+\usepackage{graphicx}
+\usepackage{multirow}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{amsthm}
+\usepackage{bm}
+\usepackage{xcolor}
+\usepackage{textcomp}
+\usepackage{manyfoot}
+\usepackage{booktabs}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{rotating}
+\graphicspath{{../}}
+
+\theoremstyle{thmstyleone}
+\newtheorem{theorem}{Theorem}
+\newtheorem{proposition}[theorem]{Proposition}
+\theoremstyle{thmstylethree}
+\newtheorem{definition}{Definition}
+\raggedbottom
+
+\begin{document}
+
+\title[TRACER-Med]{TRACER-Med: differentially private evidential learning with prototype alignment and conformal prediction for clinical risk prediction}
+
+\author*[1]{\fnm{Quang-Vinh} \sur{Dang}}\email{vinh.dq4@buv.edu.vn}
+
+\affil*[1]{\orgname{British University Vietnam}, \orgaddress{\city{Hung Yen}, \country{Vietnam}}}
+
+\abstract{\textbf{Background:} Clinical prediction models must protect patient privacy, perform comparably across demographic groups, and report calibrated uncertainty. These requirements interact when models are trained with differential privacy. We studied TRACER-Med, a framework that combines an evidential Dirichlet network, differentially private optimization with subgroup-aware clipping (REF-DP), per-sample class-prototype alignment (PC-PAT), private conformal calibration, and dual-channel attribution of disease risk and epistemic doubt.
+
+\textbf{Methods:} We evaluated TRACER-Med on four cohorts: Statlog Heart Disease ($n=270$), Pima Indians Diabetes ($n=768$), a real 20,000-patient hospital readmission cohort from the UCI Diabetes 130-US Hospitals data, and a simulated inpatient cohort ($n=10{,}000$). Comparators were non-private models, DP-SGD, DPSGD-F, an adaptation of the private Lagrangian-dual fairness method PF-LD, evidential learning, and DP-EDL. We used an exact Poisson-subsampled R\'enyi privacy accountant, a common decision threshold chosen on the calibration split, a noise-multiplier sweep, ablations, and numerical checks of the analytical statements. Results are means over three random splits.
+
+\textbf{Results:} TRACER-Med had lower calibration error than the private baselines on the two larger cohorts at all three noise levels tested (expected calibration error $0.011$ versus $0.026$--$0.080$ on the real cohort), at a cost of about $0.02$ ROC-AUC there, and one of the lowest membership-inference AUCs. It did not reduce equalized-odds disparity relative to the private baselines on the small cohorts, whereas the PF-LD adaptation did ($0.11$ versus $0.26$ on Pima at matched privacy budget). Subgroup-aware clipping gave no consistent benefit. The conformal variant with a coverage guarantee returned uninformative sets below about $1{,}300$ calibration records, and a plug-in variant undercovered ($0.81$--$0.82$ versus $0.90$ nominal) on the smallest cohort. The numerical audit corrected several statements of an earlier version of this work.
+
+\textbf{Conclusions:} In these experiments the main benefit of the framework was better calibration under differential privacy on larger cohorts. Claims of improved fairness and of informative small-cohort conformal sets were not supported. Larger real cohorts with stronger signal are needed.}
+
+\keywords{Differential privacy, Evidential deep learning, Conformal prediction, Algorithmic fairness, Calibration, Clinical risk prediction}
+
+\maketitle
+
+\section{Background}
+\label{sec:intro}
+
+\subsection{The Translational Frontier of Clinical Artificial Intelligence}
+The integration of deep learning into biomedical practice marks a transformative paradigm shift for clinical decision support systems (CDSS)~\cite{topol2019high,rajkomar2018ensuring,kelly2019key}. Across intensive care units (ICUs), emergency departments, cardiovascular wards, and ambulatory endocrinology clinics, modern hospital networks continuously aggregate multidimensional patient streams---ranging from high-frequency physiological telemetry and longitudinal electronic health records (EHRs) to comprehensive laboratory biomarker panels. Neural architectures trained on these heterogeneous data streams offer unprecedented potential for early disease detection, dynamic risk stratification, and patient triage prior to overt physiological collapse~\cite{rajkomar2018ensuring,kompa2021second}.
+
+However, despite extraordinary retrospective benchmarking achievements, an acute \emph{translational chasm} separates in-silico model development from safe, prospective bedside deployment. Unlike consumer machine learning applications where marginal inaccuracies incur negligible risk, clinical decision-making is high-stakes, irreversible, and governed by strict ethical oaths and biomedical standards. When a clinical model is deployed at the bedside, its predictions directly inform invasive diagnostics, therapeutic interventions, intensive care admissions, or discharge decisions. In this unforgiving environment, deep neural networks frequently exhibit silent, catastrophic vulnerabilities: they memorize private genomic and biometric records; they perpetuate systemic diagnostic disparities against underrepresented patient demographics; they generate dangerously overconfident hallucinations on ambiguous or atypical presentations; and they produce ungrounded, opaque saliency maps that fail to provide actionable pathophysiology.
+
+\subsection{A Motivating Bedside Clinical Dilemma}
+To appreciate why conventional deep learning systems fail in acute clinical settings, consider a high-stakes emergency department encounter. An elderly female patient presents with vague, non-classical clinical indicators: intermittent epigastric discomfort, nausea, mild dyspnea, and atypical fatigue, accompanied by borderline glycemic elevation. In female and elderly cohorts, ischemic heart disease frequently manifests through these non-anginal presentations rather than classic substernal chest pressure radiating to the left arm~\cite{detrano1989international,seyyed2021underdiagnosis}. 
+
+Suppose an emergency clinician consults an institutional CDSS to evaluate the probability of an acute coronary syndrome (ACS). If this system is built using contemporary modular machine learning techniques, it threatens the patient's safety through a cascade of compounding failures:
+\begin{enumerate}
+    \item \textbf{Privacy-Induced Disparity Penalty:} To comply with patient privacy statutes, the model was trained using standard Differentially Private Stochastic Gradient Descent (DP-SGD)~\cite{abadi2016deep}. Because elderly female cardiac cases constitute a numerical minority with high physiological variance, their per-sample gradients were disproportionately truncated by uniform Euclidean clipping thresholds. The isotropic noise injected during private optimization destroyed the subtle gradient signals defining female atypical presentations, inducing a severe false-negative bias~\cite{bagdasaryan2019differential,suriyakumar2021chasing}.
+    \item \textbf{Softmax Overconfidence and Ignorance Concealment:} Parameterized by standard softmax normalization over uncalibrated logits, the model outputs an assertive point prediction: ``86\% probability of non-cardiac etiology.'' Because softmax transforms arbitrarily large negative logits into normalized probabilities summing to one, the network is fundamentally incapable of signaling epistemic ignorance (i.e., ``I have never seen an atypical presentation of this specific biomarker configuration under differential privacy'')~\cite{sensoy2018evidential,bengs2022pitfalls}. The physician receives false reassurance.
+    \item \textbf{Absence of Finite-Sample Conformal Safety Sets:} The clinician is given a single, uncalibrated probability without distribution-free statistical coverage guarantees. Without group-conditional conformal prediction sets, there is no mathematical guarantee that a prediction set (e.g., $\{\text{Non-Ischemic}, \text{NSTEMI}\}$) will contain the ground truth with $1-\alpha_{\text{conf}}$ confidence specifically for this female demographic cohort~\cite{angelopoulos2021gentle,vovk2005algorithmic}.
+    \item \textbf{Conflated and Unactionable Attribution:} An ad-hoc single-channel saliency heatmap points to the patient's elevated glucose level. The physician is left in the dark: is the model predicting non-cardiac etiology because glucose indicates metabolic distress, or is the model highly uncertain because troponin and electrocardiogram readings are ambiguous? Standard explainability methods conflate diagnostic risk factors with drivers of epistemic vacuity, preventing the clinician from determining whether to order serial troponin assays or discharge the patient~\cite{antoran2021clue,hullermeier2021aleatoric}.
+\end{enumerate}
+
+\subsection{The Regulatory and Institutional Governance Imperative}
+In response to these compounding risks, international health authorities and legislative bodies have established rigorous regulatory mandates that render single-objective, black-box clinical algorithms obsolete:
+\begin{itemize}
+    \item \textbf{FDA Good Machine Learning Practice (GMLP):} Jointly developed by the US Food and Drug Administration (FDA), Health Canada, and the UK Medicines and Healthcare products Regulatory Agency (MHRA), GMLP Principle 7 mandates that medical AI models must demonstrate performance stability, fairness, and safety across relevant patient sub-populations throughout their total product lifecycle~\cite{fda2021gmlp}.
+    \item \textbf{FDA Predetermined Change Control Plans (PCCP):} The FDA's finalized guidance on PCCP for AI/ML-enabled device software functions requires device sponsors to specify robust post-market monitoring protocols ensuring that algorithmic updates do not introduce demographic degradation, calibration drift, or privacy vulnerabilities~\cite{fda2024pccp}.
+    \item \textbf{European Union Artificial Intelligence Act (EU AI Act):} Under Regulation (EU) 2024/1689, AI systems intended for medical diagnosis and clinical risk prediction are classified as \emph{High-Risk AI Systems} (Annex III)~\cite{euaiact2024}. Articles 9--15 enforce binding legal obligations covering continuous risk management (Art.~9), rigorous data governance and bias auditing (Art.~10), technical documentation and record-keeping (Arts.~11--12), transparent clinician-facing explainability (Art.~13), meaningful human oversight (Art.~14), and high standards of accuracy, robustness, and cybersecurity (Art.~15).
+    \item \textbf{Clinical Reporting Standards (TRIPOD+AI and FUTURE-AI):} Methodological consensus frameworks such as TRIPOD+AI~\cite{tripodai2024} and FUTURE-AI~\cite{futureai2023} emphasize that biomedical models cannot be evaluated solely on aggregate AUC-ROC. They mandate rigorous auditing of subgroup-specific error rates, probabilistic calibration, and privacy-preserving data handling.
+\end{itemize}
+
+\subsection{The Privacy--Fairness--Uncertainty Trilemma}
+To satisfy these regulatory and clinical demands, contemporary clinical data science typically adopts a fragmented, modular approach: engineers train an architecture with DP-SGD~\cite{abadi2016deep} to satisfy HIPAA/GDPR constraints; apply post-hoc demographic parity or equalized odds thresholding~\cite{hardt2016equality} to mitigate bias; apply temperature scaling or MC-dropout~\cite{gal2016dropout} for uncertainty estimation; and compute SHAP or Integrated Gradients~\cite{sundararajan2017axiomatic,lundberg2017unified} for post-hoc interpretability.
+
+We demonstrate that this modular assembly fundamentally breaks down because privacy, fairness, uncertainty, and explainability are deeply mathematically and operationally entangled. We formalize this interaction as the \textbf{Privacy--Fairness--Uncertainty Trilemma}:
+\begin{itemize}
+    \item \textbf{Trade-off 1 (Differential Privacy Disproportionately Truncates Minority Gradients):} In standard DP-SGD, per-sample gradients are clipped to a uniform Euclidean threshold $C$, followed by isotropic Gaussian noise addition. Because underrepresented clinical cohorts exhibit distinct physiological presentations and smaller sample counts $N_a \ll N$, their loss gradients reside in high-variance, high-norm regimes. Uniform Euclidean clipping disproportionately truncates minority gradient updates, while the uniform noise floor degrades their effective Signal-to-Noise Ratio (SNR). This creates an algorithmic ``equity penalty,'' widening demographic error disparities and exacerbating under-diagnosis~\cite{bagdasaryan2019differential,suriyakumar2021chasing,xu2021removing,tran2021differentially}.
+    \item \textbf{Trade-off 2 (Privacy Noise Destabilizes Probability Calibration and Dirichlet Evidence):} In evidential deep learning frameworks, Dirichlet concentration parameters $\boldsymbol{\alpha}$ represent collected clinical evidence. The gradient of evidential losses scales inversely with accumulated evidence. When DP-SGD is applied naively, uniform clipping limits the rate at which rare disease presentations can accumulate evidence, while isotropic Gaussian perturbation corrupts the Dirichlet concentration parameters. This evidence suppression distorts probability calibration, inflating Expected Calibration Error (ECE) and producing uncalibrated, overconfident predictions in high-risk clinical regimes~\cite{farrand2020neither,sensoy2018evidential}.
+    \item \textbf{Trade-off 3 (Subgroup Conformal Safety vs Prediction Set Cardinality):} Split conformal prediction provides rigorous, distribution-free marginal coverage guarantees on the aggregate population~\cite{vovk2005algorithmic,angelopoulos2021gentle,tibshirani2019conformal}. However, marginal guarantees permit severe undercoverage on protected demographic cohorts. Enforcing group-conditional coverage under differential privacy requires private quantile computation over small cohort calibration sets $n_a$. To guarantee Probably Approximately Correct (PAC) coverage with high confidence $1-\beta_{\text{conf}}$, the quantile estimate must incorporate finite-sample and privacy noise concentration buffers $\tau_a \propto \frac{1}{\sqrt{n_a}} + \frac{1}{n_a \epsilon_{\text{conf}}}$. For small minority cohorts, this buffer inflates the non-conformity threshold, creating an acute tension between subgroup coverage equity and prediction set efficiency (set cardinality $|\mathcal{C}(\mathbf{x})|$)~\cite{angelopoulos2021private}.
+\end{itemize}
+
+Because these trade-offs arise from fundamental mathematical tensions among gradient norms, privacy noise geometry, and finite-sample concentration, they cannot be resolved through post-hoc calibration or independent pipeline stages. We therefore study whether an architecture that treats the three requirements jointly can do better.
+
+\subsection{Our Contributions}
+To address the Privacy--Fairness--Uncertainty Trilemma within a cohesive architectural paradigm, we propose \textbf{TRACER-Med} (\textbf{TR}ustworthy, \textbf{A}ligned, \textbf{C}onformalized, \textbf{E}vidential, and Differentially P\textbf{R}ivate Deep Learning for \textbf{Med}icine). TRACER-Med synthesizes information-geometric differential privacy, class-conditional prototype alignment, distribution-free private conformal calibration, and dual-channel evidential attribution. Our principal contributions are:
+\begin{enumerate}
+    \item \textbf{Formulation of the Clinical Trilemma:} We provide a formal characterization of the Privacy--Fairness--Uncertainty Trilemma in biomedical deep learning, proving why naive modular combinations of DP-SGD, fairness post-processing, and evidential learning induce compounding trade-offs on imbalanced clinical cohorts.
+    \item \textbf{Riemannian Evidential-Fisher Subgroup-Calibrated DP-SGD (REF-DP):} We reformulate evidential optimization through the lens of information geometry on the Dirichlet statistical manifold. Deriving the exact closed-form inverse Fisher Information Metric $\mathcal{G}^{-1}(\boldsymbol{\alpha})$ via the Sherman--Morrison formula, we compute Riemannian Dirichlet natural gradients and derive adaptive subgroup clipping thresholds $C_a^*$ proportional to trace curvature $\operatorname{Tr}(\mathcal{G}(\bar{\boldsymbol{\alpha}}_a))$ and external epidemiological priors $p_a$. In Theorem~\ref{thm:privacy}, we prove that bounding per-sample gradients by $C_a^*$ and scaling noise to worst-case sensitivity $C_{\max} = \max_a C_a^*$ provides strict Rényi Differential Privacy (RDP) guarantees while eliminating the minority gradient truncation penalty.
+    \item \textbf{Privatized Class-Conditional Prototypical Anchor Transport (PC-PAT):} Rather than enforcing marginal demographic parity which distorts disease base rates, we formulate class-conditional alignment toward invariant, learnable diagnostic prototypes $\bar{\boldsymbol{\mu}}_y$. In Proposition~\ref{prop:wasserstein_bound}, we prove that minimizing our prototypical anchor loss directly upper-bounds the demographic 2-Wasserstein transport distance $\mathcal{W}_2(\mathbb{P}_{0, y}, \mathbb{P}_{1, y}) \to 0$. In Theorem~\ref{thm:privacy}, we prove that because prototypes are learnable model parameters updated via gradient descent, the loss preserves strict per-sample record independence, eliminating cross-sample coupling and securing differential privacy sensitivity.
+    \item \textbf{PAC-Guaranteed Differentially Private Group-Conditional Conformal Prediction (DP-GCCP):} We establish a private conformal calibration mechanism over disjoint score histograms with bounded replacement $\ell_1$ sensitivity $\Delta_1 = 2$. In Theorem~\ref{thm:conformal}, we prove that integrating empirical CDF concentration with sub-exponential Laplace tail bounds guarantees $(\epsilon_{\text{conf}}, 0)$-DP and $(\beta_{\text{conf}}, 1-\alpha_{\text{conf}})$-PAC coverage equity across demographic cohorts. We formalize the trade-off between pure PAC thresholds and operational shrinkage for small clinical cohorts.
+    \item \textbf{Dual-Channel Dirichlet Attribution (DCDA):} Exploiting Dirichlet information geometry, we formulate a dual-channel path-integrated gradient mechanism satisfying axiomatic Completeness, Implementation Invariance, and Linearity (Proposition~\ref{prop:dcda_axioms}). Channel A isolates input features driving diagnostic posterior risk, while Channel B isolates features driving Epistemic Mutual Information relative to standardized physiological baselines, providing clinicians with actionable diagnostic transparency.
+    \item \textbf{Multi-Cohort Empirical Evaluation, Including Negative Findings, and Governance Mapping:} We evaluate TRACER-Med on four cohorts, one of them a real 20,000-patient hospital cohort, with a noise-multiplier sweep, ablations, and baselines that include DPSGD-F implemented from its published algorithm and an adaptation of PF-LD. We report where it helps (calibration on the larger cohorts, membership-inference resistance) and where it does not (Equalized Odds, REF-DP, small-cohort conformal sets). We also report a numerical audit of the analytical statements and map the framework to FDA GMLP, FDA PCCP, and EU AI Act requirements.
+\end{enumerate}
+
+\subsection{Related Work}
+\label{sec:related}
+
+\subsubsection{Differential Privacy in Biomedical Machine Learning}
+Differential Privacy (DP)~\cite{dwork2014algorithmic} provides a rigorous mathematical framework bounding the privacy risk of individual training records. In deep learning, DP-SGD~\cite{abadi2016deep} limits per-sample gradient $\ell_2$ norms to threshold $C$, injects Gaussian perturbation $\mathcal{N}(0, \sigma_{\text{DP}}^2 C^2 \mathbf{I})$, and accumulates privacy loss via Rényi Differential Privacy (RDP)~\cite{mironov2017renyi,mironov2019renyi} or Gaussian Differential Privacy (GDP)~\cite{dong2022gaussian}.
+
+However, Bagdasaryan et al.~\cite{bagdasaryan2019differential} and Suriyakumar et al.~\cite{suriyakumar2021chasing} demonstrated that DP-SGD acts as an equity penalty: uniform gradient clipping severely truncates underrepresented patient cohorts, widening demographic error disparities. Subsequent investigations explored fair DP in generic classification: Xu et al.~\cite{xu2021removing} proposed DPSGD-F, adapting group clipping thresholds to balance accuracy loss; Tran et al.~\cite{tran2021differentially} formulated Lagrangian dual optimization for fair private empirical risk minimization; and Esipova et al.~\cite{esipova2022gradient} analyzed gradient misalignment driving disparate impact under DP. Furthermore, Papernot and Steinke~\cite{papernot2022hyperparameter} formalized private hyperparameter selection to prevent unaccounted privacy leakage. However, these methods focus primarily on point-prediction parity metrics. They do not address evidential uncertainty decomposition, distribution-free conformal calibration, or dual-channel explanations. TRACER-Med bridges this divide by grounding subgroup clipping in Dirichlet information geometry, unified with class-conditional optimal transport and private conformal calibration.
+
+\subsubsection{Algorithmic Fairness in Clinical Healthcare}
+Biomedical algorithmic bias is well-documented. Obermeyer et al.~\cite{obermeyer2019dissecting} demonstrated that commercial healthcare algorithms systematically prioritized healthier White patients over sicker Black patients for high-risk care management programs. Seyyed-Kalantari et al.~\cite{seyyed2021underdiagnosis} revealed that chest radiograph classifiers exhibited under-diagnosis bias in female and underserved populations. Typical fairness interventions comprise pre-processing, in-processing (e.g., fair representation learning~\cite{zemel2013learning} and representation debiasing via Sliced Wasserstein Distance~\cite{bonneel2015sliced,rabin2012wasserstein,kolouri2019generalized}), and post-processing (e.g., equalized odds thresholding~\cite{hardt2016equality}). However, existing debiasing techniques often target marginal demographic parity, which is clinically counterproductive under unequal base rates~\cite{barocas2019fairness,chouldechova2017fair,kleinberg2016inherent}. Reporting guidelines such as TRIPOD+AI~\cite{tripodai2024} and consensus frameworks like FUTURE-AI~\cite{futureai2023} emphasize that algorithmic fairness and representativeness must be evaluated through condition-specific error-rate parity rather than crude demographic parity. TRACER-Med focuses on class-conditional latent alignment targeting Equalized Odds directly within private optimization.
+
+\subsubsection{Evidential Uncertainty Quantification and Conformal Prediction}
+Standard deep neural networks with softmax parameterizations tend to output overconfident probabilities on ambiguous clinical profiles~\cite{kompa2021second,lakshminarayanan2017simple,gal2016dropout}. Evidential Deep Learning (EDL)~\cite{sensoy2018evidential} parameterizes a Dirichlet distribution over categorical probability vectors, allowing analytical decomposition into aleatoric entropy and epistemic vacuity. While recent studies have examined theoretical nuances of loss-minimized evidential learning~\cite{bengs2022pitfalls,charpentier2020posterior}, evidential parameterizations offer closed-form analytical properties suitable for path-integrated gradient explanations.
+
+Conformal Prediction (CP)~\cite{vovk2005algorithmic,angelopoulos2021gentle,tibshirani2019conformal} constructs distribution-free, finite-sample prediction sets $\mathcal{C}(X)$ satisfying marginal coverage guarantee $\mathbb{P}(Y \in \mathcal{C}(X)) \ge 1 - \alpha_{\text{conf}}$. To enforce equity across demographic subgroups, group-conditional and Mondrian conformal prediction~\cite{vovk2003mondrian,romano2020malice,sesia2020conformal,gibbs2023conformal} compute cohort-specific non-conformity quantiles. Extending conformal prediction to differentially private settings requires private quantile mechanisms~\cite{angelopoulos2021private} to avoid membership leakage while preserving bounded set size efficiency.
+
+\subsubsection{Explainable AI and Attribution Robustness}
+Attribution methods such as Integrated Gradients (IG)~\cite{sundararajan2017axiomatic} and SHAP~\cite{lundberg2017unified} provide axiomatic guarantees for feature attribution. Most existing attribution frameworks are single-channel, explaining only the predicted disease class. However, in clinical decision support, identifying features that contribute to epistemic uncertainty is equally essential~\cite{antoran2021clue,perez2022attribution}, as formalized by H{\"u}llermeier and Waegeman~\cite{hullermeier2021aleatoric} regarding the fundamental distinction between aleatoric and epistemic uncertainty. Furthermore, assessing explanation fidelity (via Infidelity metrics~\cite{yeh2019infidelity}) and empirical privacy auditing~\cite{patel2022towards,shokri2017membership,yeom2018privacy,carlini2022membership} is crucial to ensure that clinicians receive reliable, privacy-preserving diagnostic explanations.
+
+\subsubsection{Positioning and Novelty Relative to Prior Work}
+\label{sec:novelty}
+Prior work treats the three requirements of the trilemma in isolation or in pairs. Table~\ref{tab:positioning} summarizes which requirements each family of methods addresses, using the characterizations in the preceding subsections. DP-SGD~\cite{abadi2016deep} provides privacy only. DPSGD-F~\cite{xu2021removing} adapts per-group clipping to equalize accuracy loss, and the private Lagrangian-dual method PF-LD~\cite{tran2021differentially} imposes fairness constraints while protecting the sensitive attribute; both pair privacy with point-prediction fairness but offer no uncertainty quantification. Evidential learning~\cite{sensoy2018evidential} and group-conditional conformal prediction~\cite{vovk2003mondrian,romano2020malice} provide uncertainty without privacy, and private conformal quantiles~\cite{angelopoulos2021private} provide privacy for coverage without addressing training-time disparity. Integrated Gradients~\cite{sundararajan2017axiomatic} explains the predicted class only.
+
+The methodological novelty of this article lies in the coupling of these components rather than in their stacking: (i) the subgroup clipping thresholds of REF-DP are derived from the Fisher metric of the Dirichlet output manifold, which links the privacy mechanism to the evidential parameterization; (ii) PC-PAT aligns class-conditional prototypes, so fairness is enforced on Equalized Odds without distorting base rates and without cross-sample gradient coupling, which preserves the per-sample sensitivity bound used by REF-DP; (iii) DP-GCCP carries a finite-sample PAC coverage guarantee for each cohort under stratified bounded replacement adjacency; and (iv) DCDA exploits the closed-form Dirichlet structure to attribute epistemic doubt separately from disease risk. Items (i) to (iii) are accompanied by formal guarantees (Theorem~\ref{thm:privacy}, Proposition~\ref{prop:wasserstein_bound}, Theorem~\ref{thm:conformal}), and item (iv) by an axiomatic characterization (Proposition~\ref{prop:dcda_axioms}).
+
+\begin{table}[t]
+\centering
+\caption{Coverage of the three trilemma requirements and explanation type by representative method families. A check mark indicates that the requirement is addressed by the cited method; a dash indicates that it is not.}
+\label{tab:positioning}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Method family & Privacy & Fairness & Uncertainty & Doubt expl. \\
+\midrule
+DP-SGD~\cite{abadi2016deep} & \checkmark & -- & -- & -- \\
+DPSGD-F~\cite{xu2021removing}, PF-LD~\cite{tran2021differentially} & \checkmark & \checkmark & -- & -- \\
+Evidential learning~\cite{sensoy2018evidential} & -- & -- & \checkmark & -- \\
+Group-conditional conformal~\cite{vovk2003mondrian,romano2020malice} & -- & \checkmark (coverage) & \checkmark & -- \\
+Private conformal quantiles~\cite{angelopoulos2021private} & \checkmark & -- & \checkmark & -- \\
+Integrated Gradients~\cite{sundararajan2017axiomatic} & -- & -- & -- & -- \\
+\textbf{TRACER-Med (this work)} & \checkmark & \checkmark & \checkmark & \checkmark \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Methods}
+\label{sec:methods}
+\subsection{Problem Formulation and Notation}
+\label{sec:problem}
+
+\subsubsection{Formal Setting and Notation}
+Let $\mathcal{D} = \{(\mathbf{x}_i, y_i, a_i)\}_{i=1}^N$ denote a clinical dataset where $\mathbf{x}_i \in \mathbb{R}^D$ represents patient clinical features, $y_i \in \{0, 1, \dots, K-1\}$ denotes clinical diagnosis or risk outcome (with one-hot representation $\mathbf{y}_i \in \{0, 1\}^K$), and $a_i \in \mathcal{A} = \{0, 1\}$ represents a binary protected demographic attribute (e.g., biological sex or age cohort). An individual patient record is denoted by $\mathbf{r}_i = (\mathbf{x}_i, y_i, a_i) \in \mathcal{D}$. 
+
+To avoid notational ambiguity, we establish the following conventions throughout:
+\begin{itemize}
+    \item $\boldsymbol{\alpha} = (\alpha_1, \dots, \alpha_K)^\top$: Dirichlet concentration parameter vector with total evidence strength $S = \sum_k \alpha_k$.
+    \item $\alpha_{\text{conf}} \in (0, 1)$: Conformal miscoverage significance level (e.g., $\alpha_{\text{conf}} = 0.10$ for 90\% target coverage).
+    \item $\beta_{\text{conf}} \in (0, 1)$: Conformal PAC failure confidence probability (e.g., $\beta_{\text{conf}} = 0.05$).
+    \item $\sigma_{\text{DP}}$: Differential Privacy Gaussian noise multiplier.
+    \item $\sigma(z) = 1/(1 + e^{-z})$: Standard logistic sigmoid activation.
+    \item $\tau_{\text{dec}}$: Classification decision threshold for binary prediction.
+    \item $\tau_a$: Conformal concentration safety buffer for demographic cohort $a$.
+    \item $\nu = 0.1$: LeakyReLU negative activation slope (distinguished from group index $a$).
+    \item $\mathbf{h} = h_{\boldsymbol{\theta}}(\mathbf{x}) \in \mathbb{R}^d$: Latent feature representation extracted by the neural network backbone.
+    \item $c_{a, m}$: Count of non-conformity scores falling into histogram bin $B_m$ for demographic cohort $a$.
+    \item $\Delta_1$: $\ell_1$ sensitivity bound in differential privacy mechanisms.
+    \item $\Delta_{\text{SP}}, \Delta_{\text{EO}}$: Statistical Parity and Equalized Odds demographic disparity metrics.
+    \item $p_a = \mathbb{P}(A = a)$: Fixed population demographic prevalence derived from external epidemiological registries.
+    \item $t_m \in [0, 1]$: Fixed discrete public grid points for conformal quantile calibration.
+    \item $t \in [0, 1]$: Continuous straight-line interpolation parameter for path integrals.
+\end{itemize}
+
+\subsubsection{Differential Privacy Formulation}
+We adopt standard add/remove record adjacency~\cite{dwork2014algorithmic}: two datasets $\mathcal{D}, \mathcal{D}'$ are neighboring ($\mathcal{D} \simeq \mathcal{D}'$) if one is obtained by adding or removing a single patient record $\mathbf{r} = (\mathbf{x}, y, a)$: $\mathcal{D}' = \mathcal{D} \cup \{\mathbf{r}\}$ or $\mathcal{D}' = \mathcal{D} \setminus \{\mathbf{r}\}$.
+
+\begin{definition}[Differential Privacy]
+A randomized algorithm $\mathcal{M}$ satisfies $(\epsilon, \delta)$-Differential Privacy (DP) if for all neighboring datasets $\mathcal{D} \simeq \mathcal{D}'$ and all measurable output subsets $\mathcal{S}_{\text{out}} \subseteq \operatorname{Range}(\mathcal{M})$:
+\begin{equation}
+    \mathbb{P}(\mathcal{M}(\mathcal{D}) \in \mathcal{S}_{\text{out}}) \le e^\epsilon \mathbb{P}(\mathcal{M}(\mathcal{D}') \in \mathcal{S}_{\text{out}}) + \delta
+\end{equation}
+Under Rényi Differential Privacy (RDP) of order $\lambda_{\text{RDP}} > 1$~\cite{mironov2017renyi}, the Rényi divergence satisfies $D_{\lambda_{\text{RDP}}}(\mathcal{M}(\mathcal{D}) \parallel \mathcal{M}(\mathcal{D}')) \le \epsilon(\lambda_{\text{RDP}})$.
+\end{definition}
+
+\subsubsection{Algorithmic Fairness Criteria in Clinical Medicine}
+For binary clinical outcomes ($K=2$) with predicted risk $\hat{p}_1(\mathbf{x}) = \mathbb{P}(Y=1 \mid \mathbf{x})$ and a decision threshold $\tau_{\text{dec}}$ ($\hat{y} = \mathbb{I}(\hat{p}_1 \ge \tau_{\text{dec}})$) chosen on the calibration split (Section~\ref{sec:experiments}), we evaluate two standard equity metrics:
+\begin{enumerate}
+    \item \emph{Statistical Parity Disparity ($\Delta_{\text{SP}}$):}
+    \begin{equation}
+        \Delta_{\text{SP}} = |\mathbb{P}(\hat{Y} = 1 \mid A = 0) - \mathbb{P}(\hat{Y} = 1 \mid A = 1)|
+    \end{equation}
+    \item \emph{Equalized Odds Disparity ($\Delta_{\text{EO}}$):}
+    \begin{equation}
+        \Delta_{\text{EO}} = \frac{1}{2} \left( |\text{FPR}_0 - \text{FPR}_1| + |\text{TPR}_0 - \text{TPR}_1| \right)
+    \end{equation}
+    where $\text{FPR}_a$ and $\text{TPR}_a$ denote the False Positive Rate and True Positive Rate within demographic cohort $a \in \{0, 1\}$.
+\end{enumerate}
+
+\noindent \textbf{Clinical Prioritization of Equalized Odds:} In biomedical diagnostics, true disease prevalence often differs legitimately between demographic cohorts due to biological risk factors. As established by Barocas, Hardt, and Narayanan~\cite{barocas2019fairness}, Statistical Parity (independence) and Equalized Odds (separation) are mathematically incompatible under unequal base rates ($\mathbb{P}(Y = 1 \mid A = 0) \neq \mathbb{P}(Y = 1 \mid A = 1)$) unless predictions are trivial. In addition, Chouldechova~\cite{chouldechova2017fair} and Kleinberg et al.~\cite{kleinberg2016inherent} proved that predictive parity (within-group calibration) and error-rate balance cannot simultaneously hold under disparate prevalence. Forcing Statistical Parity ($\Delta_{\text{SP}} \to 0$) in clinical medicine artificially induces disparate error rates across cohorts, subjecting low-prevalence cohorts to over-diagnosis or high-prevalence cohorts to under-treatment. Consequently, Equalized Odds ($\Delta_{\text{EO}}$) serves as our primary clinical fairness criterion, ensuring equitable sensitivity and specificity conditioned on true clinical condition.
+
+\subsection{The TRACER-Med Architecture}
+\label{sec:method}
+
+TRACER-Med integrates five co-designed theoretical modules, summarized in Algorithm~\ref{alg:tracer}: (1) Evidential Dirichlet Deep Learning (D-EDL); (2) Riemannian Evidential-Fisher Subgroup-Calibrated DP-SGD (REF-DP); (3) Privatized Class-Conditional Prototypical Anchor Transport (PC-PAT); (4) Differentially Private Group-Conditional Conformal Prediction (DP-GCCP); and (5) Information-Theoretic Dual-Channel Dirichlet Attribution (DCDA).
+
+\subsubsection{Evidential Dirichlet Deep Learning Formulation}
+Rather than predicting a single softmax probability vector, TRACER-Med parameterizes a second-order Dirichlet distribution over multinomial probabilities. The network comprises a latent feature extractor $\mathbf{h} = h_{\boldsymbol{\theta}}(\mathbf{x}) \in \mathbb{R}^d$, linear projection $\mathbf{z} = \mathbf{W}\mathbf{h} + \mathbf{b} \in \mathbb{R}^K$, and an evidence head mapping to evidence vector $\mathbf{e} = \operatorname{softplus}(\mathbf{z}) \ge \mathbf{0}$, defining concentration parameters:
+\begin{equation}
+    \alpha_k = e_k + 1, \quad S = \sum_{k=1}^K \alpha_k
+\end{equation}
+The expected categorical probability for diagnosis $k$ is given by $\hat{p}_k = \alpha_k / S$. The Dirichlet parameterization yields an analytical decomposition of predictive uncertainty:
+\begin{enumerate}
+    \item \emph{Total Predictive Entropy:} $\mathcal{H}(\hat{\mathbf{p}}) = -\sum_{k=1}^K \hat{p}_k \ln \hat{p}_k$.
+    \item \emph{Expected Aleatoric Entropy:}
+    \begin{equation}
+        \mathbb{E}_{\mathbf{p} \sim \text{Dir}(\boldsymbol{\alpha})}[\mathcal{H}(\mathbf{p})] = -\sum_{k=1}^K \hat{p}_k \left(\psi(\alpha_k + 1) - \psi(S + 1)\right)
+    \end{equation}
+    where $\psi(\cdot)$ is the digamma function.
+    \item \emph{Epistemic Mutual Information (in nats):}
+    \begin{equation}
+        \mathcal{I}[y, \mathbf{p} \mid \mathbf{x}] = \mathcal{H}(\hat{\mathbf{p}}) - \mathbb{E}_{\mathbf{p} \sim \text{Dir}(\boldsymbol{\alpha})}[\mathcal{H}(\mathbf{p})] = \sum_{k=1}^K \hat{p}_k \left(\psi(\alpha_k + 1) - \psi(S + 1) - \ln \hat{p}_k\right)
+    \end{equation}
+    measuring the expected information gain about multinomial parameters from observing true outcome $y$. Note that as accumulated evidence grows ($S \gg K$), $\psi(\alpha_k + 1) - \psi(S + 1) \approx \ln \hat{p}_k$, causing epistemic mutual information to asymptotically contract to zero ($\mathcal{I} \to 0$).
+    \item \emph{Subjective Logic Vacuity:} $u = K / S \in (0, 1]$, measuring lack of total evidence, reaching $1.0$ at zero evidence ($\mathbf{e} = \mathbf{0}$).
+\end{enumerate}
+
+\noindent \textbf{Evidential Loss Formulation:} The network is trained using the expected log-loss under the Dirichlet distribution combined with a closed-form Kullback-Leibler (KL) divergence regularizer:
+\begin{equation}
+    \mathcal{L}_{\text{Bayes}}(\mathbf{x}_i, \mathbf{y}_i) = \sum_{k=1}^K y_{ik} \left( \psi(S_i) - \psi(\alpha_{ik}) \right)
+\end{equation}
+where $\mathbf{y}_i \in \{0, 1\}^K$ is the one-hot encoded ground truth. The closed-form KL divergence penalizes evidence on non-target classes relative to an uninformative Dirichlet prior $\text{Dir}(\mathbf{1})$:
+\begin{align}
+    \mathcal{L}_{\text{KL}}(\mathbf{x}_i, \mathbf{y}_i) &= D_{\text{KL}}\left(\text{Dir}(\tilde{\boldsymbol{\alpha}}_i) \parallel \text{Dir}(\mathbf{1})\right) \nonumber \\
+    &= \ln \Gamma\left(\sum_{k=1}^K \tilde{\alpha}_{ik}\right) - \sum_{k=1}^K \ln \Gamma(\tilde{\alpha}_{ik}) - \ln \Gamma(K) \nonumber \\
+    &\quad + \sum_{k=1}^K (\tilde{\alpha}_{ik} - 1)\left( \psi(\tilde{\alpha}_{ik}) - \psi\left(\sum_{j=1}^K \tilde{\alpha}_{ij}\right) \right)
+\end{align}
+where $\tilde{\boldsymbol{\alpha}}_i = \mathbf{y}_i + (1 - \mathbf{y}_i) \odot \boldsymbol{\alpha}_i$. The total per-sample evidential loss at training epoch $e$ is:
+\begin{equation}
+    \mathcal{L}_{\text{EDL}}(\mathbf{x}_i, \mathbf{y}_i) = \mathcal{L}_{\text{Bayes}}(\mathbf{x}_i, \mathbf{y}_i) + \beta_e \mathcal{L}_{\text{KL}}(\mathbf{x}_i, \mathbf{y}_i)
+\end{equation}
+where $\beta_e = \min(1, e/10)$ provides smooth annealing during early training phases.
+
+\subsubsection{Riemannian Evidential-Fisher Subgroup-Calibrated DP-SGD (REF-DP)}
+\label{sec:sc_dpsgd}
+
+In standard DP-SGD, gradients are clipped using a uniform Euclidean threshold $\|\mathbf{g}_i\|_2 \le C$. In evidential deep learning, the gradient of the Bayes loss with respect to logit $z_j$ is given by:
+\begin{equation}
+    \frac{\partial \mathcal{L}_{\text{Bayes}}}{\partial z_j} = \sum_{k=1}^K \frac{\partial \mathcal{L}_{\text{Bayes}}}{\partial \alpha_k} \frac{\partial \alpha_k}{\partial z_j} = \left(\psi_1(S) - y_j \psi_1(\alpha_j)\right) \cdot \sigma(z_j)
+\end{equation}
+where $\psi_1(x) = \frac{d^2}{dx^2} \ln \Gamma(x)$ is the trigamma function and $\sigma(z_j) = 1/(1+e^{-z_j})$ is the derivative of the softplus activation. 
+
+\noindent \textbf{Information Geometry of the Dirichlet Statistical Manifold:} The statistical manifold of Dirichlet probability distributions $\mathcal{M}_{\text{Dir}} = \{\operatorname{Dir}(\mathbf{p}; \boldsymbol{\alpha}) : \boldsymbol{\alpha} \in \mathbb{R}_{>0}^K\}$ is equipped with the Fisher Information Metric tensor $\mathcal{G}(\boldsymbol{\alpha}) \in \mathbb{R}^{K \times K}$:
+\begin{equation}
+    \mathcal{G}_{jk}(\boldsymbol{\alpha}) = \mathbb{E}_{\mathbf{p}}\left[ \frac{\partial \ln p}{\partial \alpha_j} \frac{\partial \ln p}{\partial \alpha_k} \right] = \psi_1(\alpha_j) \delta_{jk} - \psi_1(S)
+\end{equation}
+Via pull-back under the logit mapping $\alpha_k = \operatorname{softplus}(z_k) + 1$, the Fisher Information Matrix on logit space is $\mathcal{G}(\mathbf{z}) = \operatorname{diag}(\sigma(\mathbf{z})) \mathcal{G}(\boldsymbol{\alpha}) \operatorname{diag}(\sigma(\mathbf{z}))$.
+
+\begin{proposition}[Closed-Form Inverse Dirichlet Fisher Information Metric]
+\label{prop:inverse_fisher}
+Because $\mathcal{G}(\boldsymbol{\alpha}) = \operatorname{diag}(\psi_1(\boldsymbol{\alpha})) - \psi_1(S) \mathbf{1}\mathbf{1}^\top$ is a rank-1 perturbation of a diagonal matrix, by the Sherman--Morrison formula, its exact closed-form inverse is given by:
+\begin{equation}
+    \mathcal{G}^{-1}(\boldsymbol{\alpha}) = \operatorname{diag}\left(\frac{1}{\psi_1(\boldsymbol{\alpha})}\right) + \frac{\psi_1(S)}{1 - \psi_1(S) \sum_{m=1}^K \frac{1}{\psi_1(\alpha_m)}} \left(\frac{1}{\psi_1(\boldsymbol{\alpha})}\right) \left(\frac{1}{\psi_1(\boldsymbol{\alpha})}\right)^\top
+\end{equation}
+Consequently, the Natural Gradient on the Dirichlet manifold is $\widetilde{\nabla}_{\boldsymbol{\alpha}} \mathcal{L} = \mathcal{G}^{-1}(\boldsymbol{\alpha}) \nabla_{\boldsymbol{\alpha}} \mathcal{L}$, and the Riemannian gradient norm is:
+\begin{equation}
+    \|\nabla_{\boldsymbol{\alpha}} \mathcal{L}\|_{\mathcal{G}^{-1}} = \sqrt{(\nabla_{\boldsymbol{\alpha}} \mathcal{L})^\top \mathcal{G}^{-1}(\boldsymbol{\alpha}) (\nabla_{\boldsymbol{\alpha}} \mathcal{L})}
+\end{equation}
+\end{proposition}\noindent \textbf{Curvature Distortion under Flat Euclidean Clipping:} Trigamma $\psi_1(x)$ is strictly monotonically decreasing, with asymptotic expansion $\psi_1(x) = \frac{1}{x} + \frac{1}{2x^2} + \mathcal{O}(x^{-3})$ and finite maximum $\psi_1(1) = \pi^2/6 \approx 1.645$. For clinical profiles presenting minimal baseline evidence ($\alpha_j \to 1$), the Fisher Information metric trace $\operatorname{Tr}(\mathcal{G}(\boldsymbol{\alpha})) = \sum_{k=1}^K \psi_1(\alpha_k) - \psi_1(S)$ reaches its maximum value. For binary classification ($K=2$) with symmetric baseline evidence $\bar{S}_a$, $\operatorname{Tr}(\mathcal{G}) = 2\psi_1(\bar{S}_a/2) - \psi_1(\bar{S}_a) \approx \frac{2}{\bar{S}_a}$. Under flat Euclidean clipping, gradients are clipped along the identity metric $\mathbf{I}$, ignoring this Riemannian manifold geometry. For an underrepresented cohort with low baseline evidence ($\bar{S}_a < \bar{S}_{\text{pop}}$), Euclidean clipping disproportionately truncates minority gradients, acting as an evidence suppressor.
+
+To restore information-geometric invariance across demographic cohorts without expanding global sensitivity, we derive the \textbf{Riemannian Evidential-Fisher Subgroup Clipping Threshold}:
+\begin{equation}
+    C_a^* = C_0 \cdot \tilde{w}_a, \quad \tilde{w}_a = \frac{w_a}{\sqrt{\sum_{a'} p_{a'} w_{a'}^2}}
+\end{equation}
+where the clipping weight $w_a$ balances the demographic prevalence and the Fisher curvature ratio:
+\begin{equation}
+    w_a = \left( \frac{\bar{\mathcal{F}}_a}{\bar{\mathcal{F}}_{\text{pop}}} \right)^{1/2} \cdot \left( \frac{1}{2 p_a} \right)^{1/2}, \qquad \bar{\mathcal{F}}_a = \operatorname{Tr}\,\mathcal{G}(\bar{\boldsymbol{\alpha}}_a), \quad \bar{\mathcal{F}}_{\text{pop}} = \sum_a p_a \bar{\mathcal{F}}_a
+\end{equation}
+Here $\bar{\boldsymbol{\alpha}}_a$ is the mean Dirichlet parameter vector of cohort $a$ and $p_a$ its prevalence. For binary classification and symmetric evidence $\bar{\mathcal{F}}_a \approx 2/\bar{S}_a$, so the curvature factor is approximately $(\bar{S}_{\text{pop}}/\bar{S}_a)^{1/2}$. The exponents $1/2$ are a design choice: the derivation motivates a monotone increase of the threshold with curvature and with $1/p_a$, but does not determine the exponents, and we do not claim that they are optimal.
+
+\noindent \textbf{Private estimation of the weights.} Because $\bar{\boldsymbol{\alpha}}_a$ and $p_a$ are functions of the training data, the weights are estimated by a Gaussian-mechanism release. Each record contributes a count vector and a clipped evidence vector $\min(\boldsymbol{\alpha}_i - \mathbf{1}, \alpha_{\text{cap}} - 1)$ with $\alpha_{\text{cap}} = 11$ to its cohort, so that the $\ell_2$ sensitivity of the released vector (counts and evidence sums of both cohorts) under add/remove adjacency is at most $\sqrt{1 + K(\alpha_{\text{cap}}-1)^2}$. We add Gaussian noise with multiplier $\sigma_{\text{stat}} = 3$ and use the noisy values to compute $p_a$, $\bar{\boldsymbol{\alpha}}_a$, $\bar{\mathcal{F}}_a$, and $w_a$. The release is repeated every five epochs (after epochs $0, 5, 10, \dots$) with the current network, and each release is added to the privacy accountant as one full-data Gaussian mechanism. Before the first release the thresholds are uniform. An earlier version of this work fixed $p_a$ and $\bar{S}_a$ to hand-chosen ``epidemiological'' priors, which were not estimated from any registry and are not used here.
+
+\noindent \textbf{Sensitivity Bound and Contrast with Uniform Clipping:} The global worst-case $\ell_2$ sensitivity is governed by the maximum clipping threshold:
+\begin{equation}
+    C_{\max} = C_0 \cdot \max_{a \in \{0, 1\}} \tilde{w}_a
+\end{equation}
+and privacy noise is calibrated to $\sigma_{\text{DP}} C_{\max}$. Crucially, compared to setting a uniform clipping threshold at $C = C_{\max}$ (which permits all cohorts up to $C_{\max}$), REF-DP selectively constrains the majority cohort threshold ($C_0^* < C_{\max}$) while permitting the minority cohort to utilize the full clipping ball $C_1^* = C_{\max}$. This prevents the vast numerical majority from dominating the batch gradient updates, mitigating the gradient attenuation penalty on underrepresented cohorts without increasing total privacy expenditure.
+
+\subsubsection{Privatized Class-Conditional Prototypical Anchor Transport (PC-PAT)}
+\label{sec:pc_pat}
+
+To enforce Equalized Odds without forcing clinically harmful demographic parity across disparate disease base rates, we formulate \textbf{Privatized Class-Conditional Prototypical Anchor Transport (PC-PAT)}.
+
+Let $\bar{\boldsymbol{\mu}}_y \in \mathbb{R}^d$ ($y \in \{0, 1\}$) denote class-conditional diagnostic prototypes parameterized as \textbf{learnable network parameters} $\boldsymbol{\theta}_{\text{PAT}} = \{\bar{\boldsymbol{\mu}}_0, \bar{\boldsymbol{\mu}}_1\}$. They are initialized data-independently from $\mathcal{N}(\mathbf{0}, 0.01\,\mathbf{I})$. A separation regularizer $\mathcal{R}_{\text{sep}} = \max(0, \bar{\boldsymbol{\mu}}_0^\top \bar{\boldsymbol{\mu}}_1)^2$ would be a function of the parameters only and therefore privacy-neutral, but it is not used in the experiments.
+
+\begin{proposition}[Wasserstein-2 Demographic Bound via PC-PAT]
+\label{prop:wasserstein_bound}
+Let $\mathbb{P}_{a, y}$ denote the latent feature distribution $h_{\boldsymbol{\theta}}(\mathbf{X})$ conditioned on demographic attribute $A=a$ and true diagnosis $Y=y$. For each record $\mathbf{r}_i = (\mathbf{x}_i, y_i, a_i)$, define the per-sample prototypical anchor alignment loss:
+\begin{equation}
+    \ell_{\text{PAT}}(\mathbf{x}_i, y_i) = \frac{1}{2} \left\| h_{\boldsymbol{\theta}}(\mathbf{x}_i) - \bar{\boldsymbol{\mu}}_{y_i} \right\|_2^2
+\end{equation}
+By the triangle inequality of the 2-Wasserstein metric and Monge--Kantorovich duality:
+\begin{align}
+    \mathcal{W}_2(\mathbb{P}_{0, y}, \mathbb{P}_{1, y}) &\le \mathcal{W}_2(\mathbb{P}_{0, y}, \delta_{\bar{\boldsymbol{\mu}}_y}) + \mathcal{W}_2(\mathbb{P}_{1, y}, \delta_{\bar{\boldsymbol{\mu}}_y}) \notag \\
+    &\le \sqrt{2 \, \mathbb{E}_{\mathbf{h} \sim \mathbb{P}_{0, y}} [\ell_{\text{PAT}}(\mathbf{h}, y)]} + \sqrt{2 \, \mathbb{E}_{\mathbf{h} \sim \mathbb{P}_{1, y}} [\ell_{\text{PAT}}(\mathbf{h}, y)]}
+\end{align}
+Consequently, driving the cohort-wise mean anchor loss to zero drives the demographic Wasserstein-2 distance to zero. If the conditional latent distributions coincide and the output head is a function of $\mathbf{h}$, then the true and false positive rates of any threshold rule coincide and Equalized Odds holds. The bound is vacuous unless $\ell_{\text{PAT}}$ is small, which requires collapsing each class to its prototype and discards within-class information, and it does not by itself imply any improvement at finite $\lambda_{\text{fair}}$. the Results section reports that no Equalized Odds improvement was observed.
+\end{proposition}
+
+\noindent \textbf{Strict Per-Sample Record Independence:} Because the prototypes $\bar{\boldsymbol{\mu}}_y$ are model parameters updated jointly with network weights $\boldsymbol{\theta}$ through gradient descent, the gradient with respect to the unified parameter set $\boldsymbol{\Theta} = (\boldsymbol{\theta}, \boldsymbol{\theta}_{\text{PAT}})$:
+\begin{equation}
+    \mathbf{g}_i = \nabla_{\boldsymbol{\Theta}} \mathcal{L}_{\text{EDL}}(\mathbf{x}_i, y_i) + \lambda_{\text{fair}} \nabla_{\boldsymbol{\Theta}} \ell_{\text{PAT}}(\mathbf{x}_i, y_i)
+\end{equation}
+depends \emph{strictly and exclusively on record $i$ alone}. Unlike batch-level Sliced Wasserstein Distance or empirical prototype matching, there is zero cross-sample coupling. When a record $\mathbf{r}^*$ is added or removed, no other record's gradient is altered.
+
+\begin{theorem}[Privacy Guarantee of TRACER-Med Optimization]
+\label{thm:privacy}
+Let $\mathcal{D}_{\text{tr}}$ be a training dataset of size $N_{\text{tr}}$. Let $\mathcal{B} \subset \mathcal{D}_{\text{tr}}$ be sampled via Poisson subsampling with probability $q = \mathbb{E}[|\mathcal{B}|]/N_{\text{tr}}$. Let per-sample composite loss gradients $\mathbf{g}_i$ be clipped according to demographic group $a_i \in \{0, 1\}$:
+\begin{equation}
+    \tilde{\mathbf{g}}_i = \mathbf{g}_i \cdot \min\left(1, \frac{C_{a_i}^*}{\|\mathbf{g}_i\|_2}\right)
+\end{equation}
+where $C_a^* = C_0 \tilde{w}_a$. The global worst-case $\ell_2$ sensitivity under add/remove neighboring datasets $\mathcal{D} \simeq \mathcal{D}'$ is strictly bounded by:
+\begin{equation}
+    C_{\max} = \max_{a \in \{0, 1\}} C_a^* = C_0 \max(\tilde{w}_0, \tilde{w}_1)
+\end{equation}
+Perturbing the summed batch gradients with Gaussian noise $\boldsymbol{\xi} \sim \mathcal{N}\left(\mathbf{0}, \sigma_{\text{DP}}^2 C_{\max}^2 \mathbf{I}\right)$ satisfies Rényi Differential Privacy (RDP) across integer orders $\lambda_{\text{RDP}} \in \{2,\dots,128\}$ via the exact Poisson-subsampled Gaussian accountant for integer orders~\cite{mironov2019renyi}. The group-statistics releases of REF-DP are Gaussian mechanisms with unit sampling rate, and their R\'enyi divergence of order $\lambda_{\text{RDP}}$ is $\lambda_{\text{RDP}}/(2\sigma_{\text{stat}}^2)$ per release. Accumulating the loss of the $T$ sampled-Gaussian steps and of these releases, and converting via optimal order selection $\epsilon_{\text{tr}} = \min_{\lambda_{\text{RDP}}} \left\{ \epsilon(\lambda_{\text{RDP}}) + \frac{\ln(1/\delta)}{\lambda_{\text{RDP}} - 1} \right\}$ establishes $(\epsilon_{\text{tr}}, \delta)$-Differential Privacy on the training set $\mathcal{D}_{\text{tr}}$, with Adam parameter updates immune to additional privacy leakage under post-processing invariance.
+\end{theorem}
+
+\begin{proof}
+Under add/remove adjacency, neighboring datasets $\mathcal{D} \simeq \mathcal{D}'$ differ by at most one patient record $\mathbf{r}^* = (\mathbf{x}^*, y^*, a^*)$. Because the evidential loss $\mathcal{L}_{\text{EDL}}$ and prototypical alignment loss $\ell_{\text{PAT}}$ are strictly per-sample functions of model parameters $\boldsymbol{\Theta}$, the gradient $\mathbf{g}_j$ of any record $\mathbf{r}_j \neq \mathbf{r}^*$ is independent of the presence or absence of $\mathbf{r}^*$. For the differing record $\mathbf{r}^*$, its clipped gradient $\tilde{\mathbf{g}}^*$ satisfies $\|\tilde{\mathbf{g}}^*\|_2 \le C_{a^*}^* \le C_{\max}$. Because Poisson subsampling includes $\mathbf{r}^*$ with probability $q$ independently of all other records, the difference between summed batch gradients on $\mathcal{D}$ and $\mathcal{D}'$ is either $\mathbf{0}$ or $\pm \tilde{\mathbf{g}}^*$. Thus, the global $\ell_2$ sensitivity of the batch sum is strictly $C_{\max}$. Scaling Gaussian perturbation to $\sigma_{\text{DP}} C_{\max}$ ensures that the noise-to-sensitivity ratio is $\sigma_{\text{DP}}$. Across $T$ independent Poisson-subsampled Gaussian steps, privacy loss is accumulated numerically via the exact RDP accountant~\cite{mironov2019renyi,wang2019subsampled}, and conversion to $(\epsilon_{\text{tr}}, \delta)$-DP is achieved by minimizing the conversion bound over integer orders $\lambda_{\text{RDP}} \in \{2,\dots,128\}$. The clipping thresholds $C_a^*$ used within an epoch are functions of an earlier private release and of public constants, hence post-processing, and the noise is calibrated to the largest threshold in force. Post-processing invariance guarantees that the trained model parameters $\boldsymbol{\Theta}$ preserve $(\epsilon_{\text{tr}}, \delta)$-DP.
+\end{proof}
+
+\noindent \textbf{End-to-End Privacy Accounting:} The calibration set $\mathcal{D}_{\text{cal}}$ is disjoint from the training set $\mathcal{D}_{\text{tr}}$. A record is used in at most one of the two releases. Training satisfies $(\epsilon_{\text{tr}}, \delta)$-DP under add/remove adjacency, and conformal calibration satisfies $(\epsilon_{\text{conf}}, 0)$-DP under bounded replacement with public cohort sizes. Because the adjacency notions differ, we report the two budgets separately and do not combine them into a single number. Feature standardization and median imputation use training-set statistics and are not privatized, a common simplification that we list among the limitations.
+
+\subsubsection{Differentially Private Group-Conditional Conformal Prediction (DP-GCCP)}
+\label{sec:dp_gccp}
+
+To provide distribution-free risk bounds at inference time without membership leakage, we formulate a private group-conditional conformal calibration mechanism operating on a held-out calibration set $\mathcal{D}_{\text{cal}}$ partitioned by demographic cohort $\mathcal{D}_{\text{cal}, a} = \{(\mathbf{x}_i, y_i) : a_i = a\}_{i=1}^{n_a}$.
+
+For each patient, we compute non-conformity score $s_i = 1 - \hat{p}(y_i \mid \mathbf{x}_i) \in [0, 1]$. We partition $[0, 1]$ into $M_{\text{bins}} = 20$ disjoint histogram intervals $B_m = (t_{m-1}, t_m]$ using fixed public bin edges $0 = t_0 < t_1 < \dots < t_{M_{\text{bins}}} = 1$.
+
+\begin{definition}[Disjoint Binned Histogram Mechanism]
+Let $c_{a, m} = \sum_{i=1}^{n_a} \mathbb{I}(s_i \in B_m)$ denote the count of non-conformity scores falling into bin $B_m$. Under Stratified Bounded Replacement Adjacency (where cohort calibration size $n_a$ is fixed by study protocol), replacing a single record changes at most one bin count by $+1$ and one by $-1$, yielding exact $\ell_1$ sensitivity $\Delta_1 = 2$. We privatize the bin counts via independent Laplace perturbation:
+\begin{equation}
+    \tilde{c}_{a, m} = c_{a, m} + \xi_{a, m}, \quad \xi_{a, m} \sim \operatorname{Lap}\left(0, \frac{\Delta_1}{\epsilon_{\text{conf}}}\right)
+\end{equation}
+The counts are not clamped and the cumulative sums are divided by the public cohort size $n_a$ (clamping at zero or renormalizing by the noisy total would bias the noise term bounded below). The privatized cumulative distribution function is:
+\begin{equation}
+    \widetilde{F}_a(t_m) = \frac{1}{n_a}\sum_{j=1}^m \tilde{c}_{a, j}
+\end{equation}
+Because $\widetilde{F}_a$ depends solely on the noisy count vector $\tilde{\mathbf{c}}_a$ and the public $n_a$, any quantile selection is post-processing of an $(\epsilon_{\text{conf}}, 0)$-DP release.
+\end{definition}
+
+\begin{theorem}[PAC-Guaranteed Conformal Subgroup Validity]
+\label{thm:conformal}
+Let $\alpha_{\text{conf}} \in (0, 1)$ be the nominal miscoverage rate and $\beta_{\text{conf}} \in (0, 1)$ be the PAC failure confidence parameter. Define the cumulative concentration safety buffer:
+\begin{equation}
+    \label{eq:tau_a}
+    \tau_a = \sqrt{\frac{\ln(4/\beta_{\text{conf}})}{2 n_a}} + \frac{2 \Delta_1 \sqrt{M_{\text{bins}} \ln(4M_{\text{bins}}/\beta_{\text{conf}})}}{n_a \epsilon_{\text{conf}}} + \frac{2 \Delta_1 \ln(4M_{\text{bins}}/\beta_{\text{conf}})}{n_a \epsilon_{\text{conf}}}
+\end{equation}
+Select the group-conditional non-conformity threshold:
+\begin{equation}
+    \hat{q}_a = \inf \left\{ t_m : \widetilde{F}_a(t_m) \ge 1 - \alpha_{\text{conf}} + \tau_a \right\}
+\end{equation}
+with convention $\inf \emptyset = 1$. Then:
+\begin{enumerate}
+    \item Releasing $\{\hat{q}_a\}_{a \in \mathcal{A}}$ satisfies $(\epsilon_{\text{conf}}, 0)$-Differential Privacy on the calibration partition. Under parallel composition across disjoint cohorts $\mathcal{D}_{\text{cal}, a}$, the total conformal calibration privacy cost is $\epsilon_{\text{conf}}$.
+    \item With probability at least $1 - \beta_{\text{conf}}$ over the random draw of calibration sample $\mathcal{D}_{\text{cal}}$, the prediction set $\mathcal{C}(\mathbf{x}) = \{k \in \{0, 1\} : 1 - \hat{p}_k(\mathbf{x}) \le \hat{q}_a\}$ satisfies the conditional PAC coverage guarantee:
+    \begin{equation}
+        \mathbb{P}_{(\mathbf{x}, y) \sim \mathcal{D}_a}\left( y \in \mathcal{C}(\mathbf{x}) \mid A = a \right) \ge 1 - \alpha_{\text{conf}}
+    \end{equation}
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}
+(1) \emph{Privacy Guarantee:} For demographic cohort $a$, replacing a patient record alters at most one bin count by $+1$ and another by $-1$, so the $\ell_1$ sensitivity of $\mathbf{c}_a$ is $\Delta_1 = 2$. Adding Laplace noise $\operatorname{Lap}(0, \Delta_1/\epsilon_{\text{conf}})$ satisfies $(\epsilon_{\text{conf}}, 0)$-DP. Because $\widetilde{F}_a$ and $\hat{q}_a$ are deterministic functions computed on the noisy release $\tilde{\mathbf{c}}_a$, post-processing invariance ensures that $\hat{q}_a$ preserves $(\epsilon_{\text{conf}}, 0)$-DP. Because calibration subsets $\mathcal{D}_{\text{cal}, 0}$ and $\mathcal{D}_{\text{cal}, 1}$ form a disjoint partition of $\mathcal{D}_{\text{cal}}$, parallel composition bounds the total calibration privacy loss by $\epsilon_{\text{conf}}$.
+
+(2) \emph{PAC Validity:} Let $F_a(t) = \mathbb{P}(s \le t \mid A=a)$ denote the true population CDF of non-conformity scores. By the Dvoretzky--Kiefer--Wolfowitz (DKW) inequality, the empirical CDF $\hat{F}_a(t) = \frac{1}{n_a} \sum_{i=1}^{n_a} \mathbb{I}(s_i \le t)$ satisfies:
+\begin{equation}
+    \mathbb{P}\left(\sup_{t \in [0, 1]} |F_a(t) - \hat{F}_a(t)| > \sqrt{\frac{\ln(4/\beta_{\text{conf}})}{2 n_a}}\right) \le \frac{\beta_{\text{conf}}}{2}
+\end{equation}
+Simultaneously, the cumulative noise on the empirical CDF at bin $m$ is the sum of $m \le M_{\text{bins}}$ independent Laplace perturbations $Z_m = \sum_{j=1}^m \xi_{a, j}$, with variance $\operatorname{Var}(Z_m) \le 2 M_{\text{bins}} \Delta_1^2 / \epsilon_{\text{conf}}^2$ and sub-exponential scale $b = \Delta_1/\epsilon_{\text{conf}}$. By Bernstein's inequality for sub-exponential random variables:
+\begin{equation}
+    \mathbb{P}\left(|Z_m| > t\right) \le 2 \exp\left( - \frac{t^2}{2 (2 M_{\text{bins}} \Delta_1^2 / \epsilon_{\text{conf}}^2 + t \Delta_1 / \epsilon_{\text{conf}})} \right)
+\end{equation}
+Setting this probability bound to $\beta_{\text{conf}} / (2 M_{\text{bins}})$ and solving the quadratic equation for $t$ yields the positive root:
+\begin{equation}
+    t \le \frac{2 \Delta_1 \sqrt{M_{\text{bins}} \ln(4M_{\text{bins}}/\beta_{\text{conf}})}}{\epsilon_{\text{conf}}} + \frac{2 \Delta_1 \ln(4M_{\text{bins}}/\beta_{\text{conf}})}{\epsilon_{\text{conf}}}
+\end{equation}
+Dividing by $n_a$ and applying a union bound across all $M_{\text{bins}}$ bins, with probability at least $1 - \beta_{\text{conf}}/2$:
+\begin{equation}
+    \max_{m \le M_{\text{bins}}} \left| \sum_{j=1}^m \frac{\xi_{a, j}}{n_a} \right| \le \frac{2 \Delta_1 \sqrt{M_{\text{bins}} \ln(4M_{\text{bins}}/\beta_{\text{conf}})}}{n_a \epsilon_{\text{conf}}} + \frac{2 \Delta_1 \ln(4M_{\text{bins}}/\beta_{\text{conf}})}{n_a \epsilon_{\text{conf}}} =: \tau_{\text{Lap}}
+\end{equation}
+By union bound, with probability at least $1 - \beta_{\text{conf}}$, both empirical sampling error and cumulative Laplace noise are simultaneously bounded by $\tau_a$:
+\begin{equation}
+    F_a(\hat{q}_a) \ge \hat{F}_a(\hat{q}_a) - \sqrt{\frac{\ln(4/\beta_{\text{conf}})}{2 n_a}} \ge \widetilde{F}_a(\hat{q}_a) - \tau_a \ge 1 - \alpha_{\text{conf}}
+\end{equation}
+Since a test patient $(\mathbf{x}, y) \sim \mathcal{D}_a$ satisfies $y \in \mathcal{C}(\mathbf{x}) \iff s \le \hat{q}_a$, this event occurs with probability $F_a(\hat{q}_a) \ge 1 - \alpha_{\text{conf}}$, completing the proof.
+\end{proof}
+
+\noindent \textbf{Non-Vacuity Threshold and the Practical Variant:} For $\alpha_{\text{conf}} = 0.10$, the guarantee is non-vacuous only if $1 - \alpha_{\text{conf}} + \tau_a \le 1$, that is $\tau_a \le \alpha_{\text{conf}}$. With $M_{\text{bins}} = 20$, $\Delta_1 = 2$, $\epsilon_{\text{conf}} = 1$, and $\beta_{\text{conf}} = 0.05$ this requires $n_a \gtrsim 1{,}300$. For smaller cohorts the buffer pushes the target level above one, and the thresholds degenerate to $\hat{q}_a = 1$ (all sets equal $\{0,1\}$); a Monte Carlo check of both regimes is in \texttt{tests/test\_theory.py}. We therefore also evaluate a \emph{plug-in} variant that uses the same noisy cumulative distribution but the finite-sample level $(1-\alpha_{\text{conf}})(1 + 1/n_a)$ without the buffer. The plug-in variant has no finite-sample guarantee under the Laplace noise, and we report its empirical coverage. To reduce variance for small cohorts, group thresholds are shrunk toward a marginal threshold,
+\begin{equation}
+    \hat{q}_a^{\text{EB}} = \lambda_a \hat{q}_a + (1 - \lambda_a) \hat{q}_{\text{marg}}^{\text{priv}}, \quad \lambda_a = \frac{n_a}{n_a + \kappa}, \quad \kappa = 15,
+\end{equation}
+where $\hat{q}_{\text{marg}}^{\text{priv}}$ is computed from the pooled calibration scores with budget $\epsilon_{\text{conf}}/2$ and the group histograms use $\epsilon_{\text{conf}}/2$ (sequential composition of the pooled and group queries, parallel composition across cohorts), so that the total is $(\epsilon_{\text{conf}}, 0)$-DP. The shrunk threshold is post-processing of these releases, so it is private, but it carries no group-conditional coverage guarantee, and neither does the plug-in variant.
+
+\noindent \textbf{Inference-Time Demographic Governance:} Group-conditional conformal prediction requires the demographic attribute $A$ at test time to look up cohort threshold $\hat{q}_a$. In clinical medicine, demographic covariates (e.g., biological sex, age category) are standard patient triage inputs already recorded in electronic medical charts. Under EU AI Act Article 10(5) and HHS Section 1557 rules, processing demographic data for bias monitoring, calibration equity, and error mitigation is permitted under strict governance safeguards.
+
+\subsubsection{Information-Theoretic Dual-Channel Dirichlet Attribution (DCDA)}
+Clinical explainability requires informing clinicians what physiological indicators drive the disease prediction (diagnostic evidence) and what features cause diagnostic doubt (epistemic uncertainty). We introduce \textbf{Dual-Channel Dirichlet Attribution (DCDA)}, computing path-integrated gradients along straight-line paths connecting patient $\mathbf{x}$ to a clinically standardized healthy physiological reference baseline $\mathbf{x}^{(0)}$:
+
+\begin{enumerate}
+    \item \textbf{Channel A (Diagnostic Risk Attribution):} Attributes the marginal posterior disease probability $\hat{p}_1(\mathbf{x}) = \alpha_1 / S$:
+    \begin{equation}
+        \Phi_{j}^{\text{risk}}(\mathbf{x}) = \left(x_j - x^{(0)}_j\right) \int_0^1 \frac{\partial \hat{p}_1\left(\mathbf{x}^{(0)} + t (\mathbf{x} - \mathbf{x}^{(0)})\right)}{\partial x_j} \, dt
+    \end{equation}
+    \item \textbf{Channel B (Epistemic Doubt Attribution):} Attributes Epistemic Mutual Information $\mathcal{I}[y, \mathbf{p} \mid \mathbf{x}]$ (in nats):
+    \begin{equation}
+        \Phi_{j}^{\text{doubt}}(\mathbf{x}) = \left(x_j - x^{(0)}_j\right) \int_0^1 \frac{\partial \mathcal{I}\left[y, \mathbf{p} \mid \mathbf{x}^{(0)} + t (\mathbf{x} - \mathbf{x}^{(0)})\right]}{\partial x_j} \, dt
+    \end{equation}
+\end{enumerate}
+
+\begin{proposition}[Axiomatic Properties of DCDA]
+\label{prop:dcda_axioms}
+Both Channel A and Channel B satisfy the core axioms of attribution methods~\cite{sundararajan2017axiomatic}:
+\begin{enumerate}
+    \item \emph{Completeness:} By the Fundamental Theorem of Calculus:
+    \begin{equation}
+        \sum_{j=1}^D \Phi_{j}^{\text{risk}}(\mathbf{x}) = \hat{p}_1(\mathbf{x}) - \hat{p}_1\left(\mathbf{x}^{(0)}\right), \quad \sum_{j=1}^D \Phi_{j}^{\text{doubt}}(\mathbf{x}) = \mathcal{I}(\mathbf{x}) - \mathcal{I}\left(\mathbf{x}^{(0)}\right)
+    \end{equation}
+    With $M_{\text{quad}}$ Gauss--Legendre nodes the line integral is approximated, and the residual is nonzero because the network has LeakyReLU kinks. On a randomly initialized network the maximum residual over 64 inputs was about $2\times 10^{-3}$ at $30$ or $50$ nodes and $6\times 10^{-4}$ at $200$ nodes (\texttt{tests/test\_theory.py}), so we do not claim a residual below $10^{-4}$. The experiments use $30$ nodes.
+    \item \emph{Implementation Invariance:} Attributions are functionally invariant to network parameterization.
+    \item \emph{Linearity:} The attribution of a sum of differentiable outputs is the sum of their attributions, which holds because the integral and the gradient are linear.
+\end{enumerate}
+\end{proposition}
+
+\noindent \textbf{Clinical Interpretation of Doubt Attributions:} Because Channel B measures the deviation of epistemic mutual information from baseline, doubt attributions can be positive or negative. A positive attribution ($\Phi_j^{\text{doubt}} > 0$) identifies an \emph{ambiguity-inducing} biomarker that drives the model toward hesitation (e.g., conflicting borderline lab values). Conversely, a negative attribution ($\Phi_j^{\text{doubt}} < 0$) identifies a \emph{doubt-resolving} biomarker that contracts epistemic vacuity, clarifying the diagnostic picture.
+
+\noindent \textbf{Reference Baseline:} The method accepts any reference $\mathbf{x}^{(0)}$, and a clinically standardized baseline (for example normal physiological ranges) is the natural choice for interpretation. The experiments in this article use the all-zeros vector of the standardized feature space, that is, the training-set mean patient, because we did not curate reference values for every cohort. The qualitative statements about doubt-resolving and ambiguity-inducing biomarkers therefore refer to deviations from the mean patient, not from a physiological normal.
+
+\begin{algorithm}[t]
+\caption{TRACER-Med Unified Training and Conformal Calibration Pipeline}
+\label{alg:tracer}
+\begin{algorithmic}[1]
+\REQUIRE Training set $\mathcal{D}_{\text{tr}}$, Calibration set $\mathcal{D}_{\text{cal}}$, Epochs $E$, Noise multiplier $\sigma_{\text{DP}}$, Base clip $C_0$, Privacy delta $\delta$, Miscoverage $\alpha_{\text{conf}}$, Failure confidence $\beta_{\text{conf}}$, Conformal budget $\epsilon_{\text{conf}}$, Bin count $M_{\text{bins}} = 20$, Sensitivity $\Delta_1 = 2$, Smoothing parameter $\kappa = 15$, Statistics noise multiplier $\sigma_{\text{stat}}$, Alignment weight $\lambda_{\text{fair}}$.
+\ENSURE Private model $\boldsymbol{\Theta} = (\boldsymbol{\theta}, \boldsymbol{\theta}_{\text{PAT}})$, Group conformal thresholds $\{\hat{q}_a\}$.
+\STATE Set $C_a^* = C_0$ for both cohorts (uniform thresholds until the first statistics release).
+\STATE Initialize network weights $\boldsymbol{\theta}$ and class prototypes $\boldsymbol{\theta}_{\text{PAT}} = \{\bar{\boldsymbol{\mu}}_0, \bar{\boldsymbol{\mu}}_1\}$ with orthogonal unit basis vectors on $\mathbb{S}^{d-1}$.
+\STATE Total steps $T \leftarrow E \cdot \lceil |\mathcal{D}_{\text{tr}}| / |\mathcal{B}| \rceil$, subsampling ratio $q \leftarrow \mathbb{E}[|\mathcal{B}|] / |\mathcal{D}_{\text{tr}}|$.
+\FOR{epoch $e = 1$ \TO $E$}
+    \STATE Annealing parameter $\beta_e \leftarrow \min(1, e/10)$.
+    \FOR{each Poisson-subsampled mini-batch $\mathcal{B} \subset \mathcal{D}_{\text{tr}}$}
+        \FOR{each patient record $\mathbf{r}_i = (\mathbf{x}_i, y_i, a_i) \in \mathcal{B}$ \textbf{in parallel}}
+            \STATE Compute evidential loss $\mathcal{L}_{\text{EDL}}(\mathbf{x}_i, y_i) = \mathcal{L}_{\text{Bayes}} + \beta_e \mathcal{L}_{\text{KL}}$.
+            \STATE Compute prototypical anchor loss $\ell_{\text{PAT}}(\mathbf{x}_i, y_i) = \frac{1}{2} \|h_{\boldsymbol{\theta}}(\mathbf{x}_i) - \bar{\boldsymbol{\mu}}_{y_i}\|_2^2$.
+            \STATE Composite per-sample gradient: $\mathbf{g}_i \leftarrow \nabla_{\boldsymbol{\Theta}} \left[\mathcal{L}_{\text{EDL}}(\mathbf{x}_i, y_i) + \lambda_{\text{fair}} \ell_{\text{PAT}}(\mathbf{x}_i, y_i)\right]$.
+            \STATE Group-conditioned clipping: $\tilde{\mathbf{g}}_i \leftarrow \mathbf{g}_i \cdot \min\left(1, \frac{C_{a_i}^*}{\|\mathbf{g}_i\|_2}\right)$.
+        \ENDFOR
+        \STATE Perturb summed gradients: $\tilde{\mathbf{G}} \leftarrow \sum_{i \in \mathcal{B}} \tilde{\mathbf{g}}_i + \mathcal{N}\left(\mathbf{0}, \sigma_{\text{DP}}^2 C_{\max}^2 \mathbf{I}\right)$.
+        \STATE Update model parameters $\boldsymbol{\Theta} = (\boldsymbol{\theta}, \boldsymbol{\theta}_{\text{PAT}})$ via Adam post-processing on $\tilde{\mathbf{G}} / (q N_{\text{tr}})$.
+        \STATE Accumulate order-$\lambda_{\text{RDP}}$ privacy expenditure via the Poisson-subsampled Gaussian accountant.
+    \ENDFOR
+    \IF{$e \bmod 5 = 0$}
+        \STATE Release noisy cohort counts and mean Dirichlet parameters (multiplier $\sigma_{\text{stat}}$), recompute $w_a$, $C_a^*$, $C_{\max}$, and account the release.
+    \ENDIF
+\ENDFOR
+\STATE \textbf{Private Conformal Calibration (on disjoint $\mathcal{D}_{\text{cal}}$):}
+\STATE Compute privatized marginal threshold $\hat{q}_{\text{marg}}^{\text{priv}}$ over pooled non-conformity scores using Laplace budget $\epsilon_{\text{conf}}/2$.
+\FOR{each demographic group $a \in \{0, 1\}$}
+    \STATE Compute non-conformity scores $s_i = 1 - \hat{p}(y_i \mid \mathbf{x}_i)$ on disjoint calibration partition $\mathcal{D}_{\text{cal}, a} \subset \mathcal{D}_{\text{cal}}$.
+    \STATE Query privatized binned histogram counts $\tilde{c}_{a, m} = c_{a, m} + \xi_{a, m}$, $\xi_{a, m} \sim \operatorname{Lap}(0, \Delta_1/\epsilon_{\text{conf}})$.
+    \STATE Construct the noisy CDF $\widetilde{F}_a(t_m) = \frac{1}{n_a}\sum_{j=1}^m \tilde{c}_{a, j}$.
+    \STATE Compute PAC concentration buffer $\tau_a = \sqrt{\frac{\ln(4/\beta_{\text{conf}})}{2 n_a}} + \frac{2 \Delta_1 \sqrt{M_{\text{bins}} \ln(4M_{\text{bins}}/\beta_{\text{conf}})}}{n_a \epsilon_{\text{conf}}} + \frac{2 \Delta_1 \ln(4M_{\text{bins}}/\beta_{\text{conf}})}{n_a \epsilon_{\text{conf}}}$.
+    \STATE Select the PAC threshold $\hat{q}_a \leftarrow \inf \{t_m : \widetilde{F}_a(t_m) \ge 1 - \alpha_{\text{conf}} + \tau_a\}$ (or the plug-in level $(1-\alpha_{\text{conf}})(1+1/n_a)$).
+    \STATE Apply shrinkage: $\hat{q}_a \leftarrow \lambda_a \hat{q}_a + (1 - \lambda_a) \hat{q}_{\text{marg}}^{\text{priv}}$ with $\lambda_a = \frac{n_a}{n_a + \kappa}$.
+\ENDFOR
+\RETURN Trained private model $\boldsymbol{\Theta}$ and calibrated group thresholds $\{\hat{q}_a\}$.
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Experimental Setup}
+\label{sec:experiments}
+
+\subsubsection{Biomedical Benchmark Cohorts}
+We evaluate TRACER-Med across four clinical benchmarks:
+\begin{enumerate}
+    \item \textbf{Statlog Heart Disease Benchmark ($N=270, D=12$):} OpenML ID: 53. Secondary analysis of the cardiovascular angiography referral cohort collected at the Cleveland Clinic~\cite{detrano1989international}. Target: presence of obstructive coronary artery disease ($Y \in \{0, 1\}$). Protected demographic attribute: biological sex ($A \in \{0, 1\}$, with female patients forming a 32.2\% minority). Due to angiographic referral patterns, disease prevalence differs substantially between sexes (approximately 52\% in males vs 29\% in females, yielding an underlying epidemiological base-rate difference of $\approx 0.23$--$0.24$). Features comprise 12 physiological and diagnostic variables: age, chest pain type (`cp`, categories 0--3), resting blood pressure, serum cholesterol, fasting blood sugar (`fbs`, binary indicator $\le 120$ vs $>120$ mg/dL), resting ECG, maximum heart rate, exercise-induced angina, ST depression, slope of peak exercise ST segment, fluoroscopy colored vessels (`ca`, 0--3), and thallium scintigraphy (`thal`). Because `ca` and `thal` represent post-stress or invasive diagnostic findings, this benchmark evaluates diagnostic risk stratification rather than early asymptomatic community screening.
+    \item \textbf{Pima Indians Diabetes Benchmark ($N=768, D=8$):} OpenML ID: 37. Standard metabolic risk screening benchmark from the National Institute of Diabetes and Digestive and Kidney Diseases~\cite{smith1988using}. Target: diabetes onset within 5 years. Protected attribute: age category ($A = 0$ for age $\le 30$ [54.4\%], $A = 1$ for age $> 30$ [45.6\%]), serving as a demographic risk-stratification proxy. Features comprise 8 clinical predictors: number of pregnancies, 2-hour post-OGTT plasma glucose concentration, diastolic blood pressure, triceps skin fold thickness, 2-hour serum insulin, body mass index (BMI), diabetes pedigree function, and age. Clinically non-physiological zero entries in continuous physiological variables (e.g., zero glucose, blood pressure, triceps skinfold, insulin, or BMI) were treated as missing and imputed using training-fold medians. We respectfully acknowledge that this benchmark originates from the Akimel O'odham (Pima) Indigenous community, and ethical stewardship requires evaluating metabolic algorithms to prevent under-diagnosis.
+    \item \textbf{Diabetes 130-US Hospitals, Real Readmission Cohort ($N=20{,}000, D=17$):} Real inpatient encounters of patients with diabetes from 130 US hospitals (1999--2008, UCI repository, CC BY 4.0)~\cite{strack2014impact}. We use the first encounter per patient, remove encounters that ended in death or hospice, keep patients recorded as Caucasian or African American, and draw a seeded random sample of $20{,}000$ patients. Target: readmission within 30 days (prevalence $9.2\%$). Protected attribute: race (African American $19.5\%$); race is not used as a feature, and prevalence is nearly equal across the two groups ($9.3\%$ and $9.1\%$), so group disparities on this cohort reflect model behavior, not base-rate differences. Features: age, sex, length of stay, laboratory and medication counts, log prior outpatient, emergency, and inpatient visits, number of diagnoses, emergency admission, discharge home, insulin use, medication change, diabetes medication, and HbA1c indicators. Signal is weak (ROC-AUC about $0.6$ for all models).
+    \item \textbf{Simulated Inpatient EHR Cohort ($N=10{,}000, D=15$):} A synthetic cohort generated by the released code. The marginal distributions of the features are hand-specified with plausible clinical ranges, are drawn independently, and are not fitted to MIMIC-IV, eICU, or any other database. The outcome (deterioration; prevalence $42\%$) is a logistic function of age, hypotension, tachycardia, hypoxemia, log lactate, log creatinine, SOFA score, Charlson index, and leukocytosis, plus a shift of $0.70$ in log-odds for the minority cohort ($30\%$ of patients) that mimics unequal baseline risk. The 15 features are age, sex, systolic blood pressure, heart rate, respiratory rate, SpO$_2$, temperature, WBC, creatinine, BUN, lactate, glucose, platelets, SOFA score, and Charlson index. Because the data are synthetic, results on this cohort show how the methods behave on a controlled problem and say nothing about clinical performance.
+\end{enumerate}
+
+\subsubsection{Evaluated Model Paradigms}
+We benchmark TRACER-Med against representative paradigms:
+\begin{enumerate}
+    \item \textbf{Standard ERM:} Empirical Risk Minimization using cross-entropy loss without privacy or fairness constraints.
+    \item \textbf{Standard DP-SGD:} Private deep neural network trained with uniform Euclidean per-sample gradient clipping ($C=1.0$) and Gaussian noise addition~\cite{abadi2016deep}.
+    \item \textbf{Fair-ERM:} Non-private neural network incorporating Sliced Wasserstein Distance latent representation alignment~\cite{bonneel2015sliced}.
+    \item \textbf{DPSGD-F:} Algorithm~2 of Xu et al.~\cite{xu2021removing}: a standard classifier with per-group clipping bounds $C^k = C_0(1 + (\tilde{m}_k/\tilde{b}_k)/(\tilde{m}/b))$ computed from noisy counts of samples whose gradient norm exceeds $C_0$, noise on the counts with $\sigma_1 = 10\sigma_2$, and gradient noise calibrated to $\max_k C^k$. Both noise streams are accounted. We clip the ratio to $[0, 10]$ for numerical stability and use Poisson sampling.
+    \item \textbf{PF-LD (adapted):} An adaptation of the private Lagrangian-dual method of Tran et al.~\cite{tran2021differentially}, whose original privacy guarantee protects only the sensitive attribute. To compare under our threat model, DP-SGD protects all record attributes, and a demographic-parity constraint on $h(\mathbf{x}) = \hat{p}_1(\mathbf{x})$ is added with per-sample gradients clipped to $C_p = 1$, constraint-gradient noise calibrated to the sensitivity $\Delta_p = 2C_p\lambda_{\max}/(\min_k |B_k| - 1)$ of their Theorem~1, and a noisy dual update after each epoch ($\lambda_{\max} = 1$, step $0.5$). The constraint release and the dual updates are added to the accountant as additional sampled-Gaussian and Gaussian releases, which about doubles the privacy cost at equal noise. We therefore report it twice: at $\sigma_{\text{DP}} = 0.8$ (higher $\epsilon$) and with a noise multiplier chosen so that its accounted $\epsilon$ equals that of DP-SGD (matched $\epsilon$). The hyperparameters $\lambda_{\max}$ and step were set from a small grid evaluated on the same splits as the reported results, which favors this baseline. This is an adaptation and not the authors' implementation.
+    \item \textbf{Standard EDL:} Evidential Deep Learning with Dirichlet Bayes loss and KL divergence regularizer without privacy constraints~\cite{sensoy2018evidential}.
+    \item \textbf{DP-EDL:} Evidential Deep Learning trained under standard DP-SGD with uniform Euclidean clipping.
+    \item \textbf{TRACER-Med (Proposed):} Full architecture integrating REF-DP optimization, PC-PAT latent representation alignment, DP-GCCP conformal prediction, and DCDA explainability.
+\end{enumerate}
+
+\subsubsection{Evaluation Metrics Suite}
+Each model is evaluated across six quantitative dimensions:
+\begin{enumerate}
+    \item \emph{Clinical Discrimination:} ROC-AUC and Precision-Recall AUC (PR-AUC).
+    \item \emph{Probability Calibration:} Expected Calibration Error (ECE, 10 bins) and Brier Score.
+    \item \emph{Algorithmic Fairness:} Statistical Parity Disparity ($\Delta_{\text{SP}}$) and Equalized Odds Disparity ($\Delta_{\text{EO}}$).
+    \item \emph{Empirical Privacy Leakage:} Membership Inference Attack (MIA) AUC under calibrated shadow loss thresholding~\cite{shokri2017membership,yeom2018privacy,carlini2022membership}.
+    \item \emph{Operating Point:} All decision-based metrics (sensitivity, specificity, $\Delta_{\text{SP}}$, $\Delta_{\text{EO}}$) use a single threshold per model, chosen on the calibration split to maximize Youden's $J$ without access to the sensitive attribute. Fixed thresholds of $0.5$ confound disparity with each model's score scale: in a preliminary run, a model that predicted almost no positives at $0.5$ (sensitivity $0.28$ on Statlog Heart) appeared much fairer than all baselines, which disappeared under a common operating point.
+    \item \emph{Conformal Coverage Equity and Efficiency:} Marginal empirical coverage ($\mathbb{P}(Y \in \mathcal{C}(X))$), Subgroup Coverage Gap ($|\text{Cov}_0 - \text{Cov}_1|$), Average Set Cardinality ($\bar{|\mathcal{C}|}$), and Singleton Set Rate ($\mathbb{P}(|\mathcal{C}(X)| = 1)$).
+    \item \emph{Explanation Quality:} Explanation Infidelity (INFD)~\cite{yeh2019infidelity}.
+\end{enumerate}
+
+\subsubsection{Implementation and Computational Protocol}
+All models were implemented in PyTorch (CPU execution). Backbones have two hidden layers (64 and 32 units; about $4{,}200$ parameters) with LayerNorm and LeakyReLU activations ($\nu = 0.1$). Optimization used Adam ($\eta = 5 \times 10^{-3}$, weight decay $10^{-4}$) with expected batch size $32$ for Statlog Heart and Pima Diabetes ($20$ epochs) and $128$ for the two larger cohorts ($12$ epochs). Private models use Poisson subsampling with probability $q = |\mathcal{B}|/N_{\text{train}}$ and the exact Poisson-subsampled Gaussian R\'enyi accountant of Mironov et al.~\cite{mironov2019renyi} at integer orders $2,\dots,128$ (checked against the Opacus implementation to relative error below $10^{-12}$), with base clipping $C_0=1.0$, noise multiplier $\sigma_{\text{DP}}=0.8$, and $\delta = 10^{-5}$. This gives $\epsilon = 27.7$ on Heart, $17.5$ on Pima, $5.2$ on the readmission cohort, and $7.3$ on the simulated EHR cohort for DP-SGD, and slightly more for TRACER-Med ($28.2$, $18.0$, $5.8$, $8.0$) because of the group-statistics releases. Budgets above about $10$ are weak, and Section~\ref{sec:sweep} varies the noise multiplier from $0.8$ to $3.0$. Conformal calibration used $\alpha_{\text{conf}} = 0.10$, $\beta_{\text{conf}} = 0.05$, $M_{\text{bins}} = 20$, and $\epsilon_{\text{conf}} = 1.0$, which is separate from the training budget. Each model was trained on three random stratified train/calibration/test splits ($55\%/20\%/25\%$; seeds 42, 43, 44, with the training random number generators seeded identically), and we report the mean and standard deviation over these splits; the noise sweep also uses three splits. With three splits the standard deviations are rough indicators, and differences smaller than one standard deviation should not be read as significant. Feature standardization and imputation use training-set statistics and are not privatized. The code, the result files, and the numerical checks of Section~\ref{sec:verification} are in the repository listed under Data and Code Availability.
+
+\section{Results}
+\label{sec:results}
+
+\subsection{Quantitative Performance Comparison}
+The benchmark results across the four cohorts are summarized in Table~\ref{tab:main_results}.
+
+\begin{sidewaystable}
+\centering
+\small
+\caption{Main results on four cohorts (mean $\pm$ std over 3 random splits; privacy columns are $\epsilon$ at $\delta=10^{-5}$). Non-private models are listed first. Bold marks the best value among the five private rows with comparable $\epsilon$ (DP-SGD, DPSGD-F, PF-LD with matched $\epsilon$, DP-EDL, TRACER-Med); the PF-LD row at $\sigma=0.8$ spends a larger budget and is not bolded. Cov. is the marginal empirical coverage of the plug-in private conformal sets (nominal $0.90$) and Set the average set size; $^\dagger$ marks coverage below $0.85$. $\Delta_{\text{SP}}$ and $\Delta_{\text{EO}}$ use the calibration-split operating point.}
+\label{tab:main_results}
+\begingroup\scriptsize\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lcccccccc}
+\toprule
+\textbf{Model} & $\epsilon$ & \textbf{ROC-AUC} $\uparrow$ & \textbf{ECE} $\downarrow$ & $\Delta_{\text{SP}}$ $\downarrow$ & $\Delta_{\text{EO}}$ $\downarrow$ & \textbf{MIA AUC} $\downarrow$ & \textbf{Cov.} & \textbf{Set} \\
+\midrule
+\multicolumn{9}{l}{\emph{Statlog Heart Disease ($N=270$, protected: sex)}} \\
+Standard ERM & $\infty$ & $0.849 \pm 0.035$ & $0.211 \pm 0.034$ & $0.262 \pm 0.041$ & $0.127 \pm 0.020$ & $0.611 \pm 0.022$ & $0.89$ & $1.26$ \\
+Fair-ERM & $\infty$ & $0.850 \pm 0.038$ & $0.173 \pm 0.045$ & $0.253 \pm 0.077$ & $0.134 \pm 0.079$ & $0.594 \pm 0.029$ & $0.90$ & $1.39$ \\
+Standard EDL & $\infty$ & $0.861 \pm 0.036$ & $0.112 \pm 0.024$ & $0.302 \pm 0.114$ & $0.171 \pm 0.102$ & $0.585 \pm 0.041$ & $0.90$ & $1.29$ \\
+DP-SGD & 27.7 & $\mathbf{0.893} \pm \mathbf{0.029}$ & $0.158 \pm 0.024$ & $0.280 \pm 0.028$ & $\mathbf{0.103} \pm \mathbf{0.057}$ & $0.539 \pm 0.029$ & $0.81^\dagger$ & $1.00$ \\
+DPSGD-F~\cite{xu2021removing} & 27.8 & $0.882 \pm 0.037$ & $0.137 \pm 0.016$ & $0.323 \pm 0.034$ & $0.138 \pm 0.064$ & $0.542 \pm 0.037$ & $0.81^\dagger$ & $1.02$ \\
+PF-LD, adapted, matched $\epsilon$~\cite{tran2021differentially} & 27.7 & $0.833 \pm 0.040$ & $0.141 \pm 0.010$ & $0.288 \pm 0.017$ & $0.190 \pm 0.077$ & $\mathbf{0.517} \pm \mathbf{0.020}$ & $0.83^\dagger$ & $1.25$ \\
+PF-LD, adapted, $\sigma=0.8$~\cite{tran2021differentially} & 75.2 & $0.850 \pm 0.040$ & $0.146 \pm 0.010$ & $0.207 \pm 0.036$ & $0.157 \pm 0.098$ & $0.521 \pm 0.022$ & $0.82^\dagger$ & $1.13$ \\
+DP-EDL & 27.7 & $0.891 \pm 0.029$ & $\mathbf{0.079} \pm \mathbf{0.016}$ & $\mathbf{0.265} \pm \mathbf{0.076}$ & $0.117 \pm 0.059$ & $0.543 \pm 0.034$ & $0.82^\dagger$ & $1.01$ \\
+\textbf{TRACER-Med} & 28.2 & $0.864 \pm 0.016$ & $0.203 \pm 0.020$ & $0.310 \pm 0.066$ & $0.154 \pm 0.073$ & $0.523 \pm 0.020$ & $0.89$ & $1.50$ \\
+\midrule
+\multicolumn{9}{l}{\emph{Pima Indians Diabetes ($N=768$, protected: age group)}} \\
+Standard ERM & $\infty$ & $0.772 \pm 0.010$ & $0.148 \pm 0.009$ & $0.399 \pm 0.046$ & $0.285 \pm 0.028$ & $0.603 \pm 0.007$ & $0.89$ & $1.44$ \\
+Fair-ERM & $\infty$ & $0.797 \pm 0.004$ & $0.080 \pm 0.012$ & $0.382 \pm 0.015$ & $0.237 \pm 0.016$ & $0.563 \pm 0.011$ & $0.89$ & $1.40$ \\
+Standard EDL & $\infty$ & $0.791 \pm 0.013$ & $0.099 \pm 0.009$ & $0.470 \pm 0.030$ & $0.349 \pm 0.036$ & $0.576 \pm 0.015$ & $0.90$ & $1.39$ \\
+DP-SGD & 17.5 & $0.807 \pm 0.019$ & $0.202 \pm 0.019$ & $0.368 \pm 0.013$ & $0.221 \pm 0.051$ & $0.529 \pm 0.011$ & $0.93$ & $1.71$ \\
+DPSGD-F~\cite{xu2021removing} & 17.5 & $0.810 \pm 0.028$ & $0.142 \pm 0.030$ & $0.368 \pm 0.070$ & $0.256 \pm 0.019$ & $0.523 \pm 0.013$ & $0.92$ & $1.59$ \\
+PF-LD, adapted, matched $\epsilon$~\cite{tran2021differentially} & 17.5 & $0.784 \pm 0.007$ & $0.221 \pm 0.047$ & $\mathbf{0.226} \pm \mathbf{0.071}$ & $\mathbf{0.112} \pm \mathbf{0.067}$ & $\mathbf{0.509} \pm \mathbf{0.009}$ & $0.93$ & $1.65$ \\
+PF-LD, adapted, $\sigma=0.8$~\cite{tran2021differentially} & 54.8 & $0.798 \pm 0.012$ & $0.201 \pm 0.033$ & $0.219 \pm 0.068$ & $0.092 \pm 0.060$ & $0.514 \pm 0.011$ & $0.93$ & $1.62$ \\
+DP-EDL & 17.5 & $0.812 \pm 0.020$ & $\mathbf{0.117} \pm \mathbf{0.005}$ & $0.398 \pm 0.037$ & $0.266 \pm 0.048$ & $0.529 \pm 0.010$ & $0.91$ & $1.58$ \\
+\textbf{TRACER-Med} & 18.0 & $\mathbf{0.820} \pm \mathbf{0.017}$ & $0.133 \pm 0.015$ & $0.400 \pm 0.040$ & $0.264 \pm 0.031$ & $0.510 \pm 0.004$ & $0.92$ & $1.71$ \\
+\midrule
+\multicolumn{9}{l}{\emph{Diabetes 130-US Hospitals, real ($N=20{,}000$, 30-day readmission, protected: race)}} \\
+Standard ERM & $\infty$ & $0.597 \pm 0.016$ & $0.018 \pm 0.006$ & $0.044 \pm 0.031$ & $0.074 \pm 0.025$ & $0.510 \pm 0.001$ & $0.91$ & $1.00$ \\
+Fair-ERM & $\infty$ & $0.623 \pm 0.011$ & $0.009 \pm 0.004$ & $0.038 \pm 0.027$ & $0.080 \pm 0.023$ & $0.504 \pm 0.001$ & $0.91$ & $1.00$ \\
+Standard EDL & $\infty$ & $0.612 \pm 0.011$ & $0.005 \pm 0.002$ & $0.059 \pm 0.037$ & $0.106 \pm 0.026$ & $0.507 \pm 0.002$ & $0.91$ & $1.00$ \\
+DP-SGD & 5.2 & $0.621 \pm 0.005$ & $0.079 \pm 0.001$ & $0.044 \pm 0.019$ & $0.077 \pm 0.023$ & $0.499 \pm 0.004$ & $0.91$ & $1.00$ \\
+DPSGD-F~\cite{xu2021removing} & 5.2 & $0.611 \pm 0.011$ & $0.063 \pm 0.002$ & $0.067 \pm 0.031$ & $0.064 \pm 0.039$ & $0.503 \pm 0.003$ & $0.91$ & $1.00$ \\
+PF-LD, adapted, matched $\epsilon$~\cite{tran2021differentially} & 5.2 & $0.524 \pm 0.032$ & $0.078 \pm 0.001$ & $\mathbf{0.036} \pm \mathbf{0.025}$ & $\mathbf{0.043} \pm \mathbf{0.023}$ & $0.500 \pm 0.005$ & $0.91$ & $1.00$ \\
+PF-LD, adapted, $\sigma=0.8$~\cite{tran2021differentially} & 31.3 & $0.559 \pm 0.026$ & $0.080 \pm 0.001$ & $0.053 \pm 0.026$ & $0.066 \pm 0.031$ & $0.501 \pm 0.004$ & $0.91$ & $1.00$ \\
+DP-EDL & 5.2 & $\mathbf{0.626} \pm \mathbf{0.003}$ & $0.039 \pm 0.001$ & $0.054 \pm 0.023$ & $0.084 \pm 0.034$ & $\mathbf{0.499} \pm \mathbf{0.002}$ & $0.91$ & $1.00$ \\
+\textbf{TRACER-Med} & 5.8 & $0.601 \pm 0.001$ & $\mathbf{0.011} \pm \mathbf{0.009}$ & $0.042 \pm 0.032$ & $0.047 \pm 0.036$ & $0.501 \pm 0.002$ & $0.91$ & $1.00$ \\
+\midrule
+\multicolumn{9}{l}{\emph{Simulated inpatient EHR cohort ($N=10{,}000$, protected: demographic cohort)}} \\
+Standard ERM & $\infty$ & $0.736 \pm 0.007$ & $0.051 \pm 0.012$ & $0.018 \pm 0.006$ & $0.049 \pm 0.015$ & $0.537 \pm 0.004$ & $0.90$ & $1.52$ \\
+Fair-ERM & $\infty$ & $0.743 \pm 0.003$ & $0.036 \pm 0.011$ & $0.016 \pm 0.002$ & $0.051 \pm 0.010$ & $0.521 \pm 0.003$ & $0.89$ & $1.51$ \\
+Standard EDL & $\infty$ & $0.739 \pm 0.004$ & $0.035 \pm 0.008$ & $0.027 \pm 0.011$ & $0.064 \pm 0.021$ & $0.529 \pm 0.004$ & $0.89$ & $1.51$ \\
+DP-SGD & 7.3 & $0.747 \pm 0.002$ & $0.220 \pm 0.003$ & $0.023 \pm 0.012$ & $0.045 \pm 0.026$ & $0.506 \pm 0.004$ & $1.00$ & $2.00$ \\
+DPSGD-F~\cite{xu2021removing} & 7.3 & $0.747 \pm 0.008$ & $0.176 \pm 0.013$ & $0.008 \pm 0.004$ & $0.047 \pm 0.010$ & $0.506 \pm 0.005$ & $0.93$ & $1.64$ \\
+PF-LD, adapted, matched $\epsilon$~\cite{tran2021differentially} & 7.3 & $0.711 \pm 0.017$ & $0.225 \pm 0.029$ & $\mathbf{0.002} \pm \mathbf{0.002}$ & $\mathbf{0.036} \pm \mathbf{0.009}$ & $\mathbf{0.499} \pm \mathbf{0.000}$ & $0.94$ & $1.71$ \\
+PF-LD, adapted, $\sigma=0.8$~\cite{tran2021differentially} & 32.4 & $0.742 \pm 0.009$ & $0.197 \pm 0.007$ & $0.014 \pm 0.004$ & $0.049 \pm 0.012$ & $0.501 \pm 0.003$ & $1.00$ & $2.00$ \\
+DP-EDL & 7.3 & $0.746 \pm 0.004$ & $0.147 \pm 0.003$ & $0.021 \pm 0.010$ & $0.049 \pm 0.024$ & $0.506 \pm 0.004$ & $0.96$ & $1.77$ \\
+\textbf{TRACER-Med} & 8.0 & $\mathbf{0.751} \pm \mathbf{0.004}$ & $\mathbf{0.084} \pm \mathbf{0.004}$ & $0.017 \pm 0.008$ & $0.047 \pm 0.019$ & $0.503 \pm 0.002$ & $0.94$ & $1.69$ \\
+\bottomrule
+\end{tabular}
+\endgroup
+\end{sidewaystable}
+
+\subsection{Privacy--Fairness Trade-off}
+Table~\ref{tab:main_results} supports the following observations, each stated with its caveats.
+\begin{itemize}
+    \item \textbf{TRACER-Med does not improve Equalized Odds.} On Statlog Heart, $\Delta_{\text{EO}}$ is $0.154$ for TRACER-Med against $0.103$ for DP-SGD, $0.138$ for DPSGD-F, and $0.117$ for DP-EDL; on Pima it is $0.264$ against $0.221$--$0.266$; on the real readmission cohort $0.047$ against $0.077$ (DP-SGD), $0.064$ (DPSGD-F), and $0.084$ (DP-EDL); and on the simulated EHR cohort $0.047$ against $0.045$--$0.049$. Only the readmission difference favors TRACER-Med, with disparities of this size ($<0.1$) on $5{,}000$ test patients and three splits.
+    \item \textbf{A fairness-constrained baseline reduces disparity more.} The PF-LD adaptation lowers disparity clearly on Pima, with $\Delta_{\text{EO}} = 0.112$ and $\Delta_{\text{SP}} = 0.226$ at matched $\epsilon$ ($0.092$ and $0.219$ at $\sigma=0.8$ and a larger budget), against $0.264$ and $0.400$ for TRACER-Med, at a cost of $0.036$ ROC-AUC. On Statlog Heart it reduces $\Delta_{\text{SP}}$ at the larger budget ($0.207$) but not at matched $\epsilon$ ($0.288$). On the real readmission cohort its matched-$\epsilon$ model is close to chance ($\text{ROC-AUC}=0.524$), so its lowest disparities ($\Delta_{\text{EO}}=0.043$) are not informative.
+    \item \textbf{Group-adaptive clipping alone does not help.} DPSGD-F, implemented from its published algorithm, is not fairer than DP-SGD in our runs (Heart $\Delta_{\text{EO}}$ $0.138$ versus $0.103$, Pima $0.256$ versus $0.221$), consistent with the observation that its group bounds are derived to equalize clipping bias, not error rates.
+    \item \textbf{Statistical parity on Statlog Heart is not a clinical goal.} Male and female patients differ in prevalence by about $0.23$ in this referral cohort, so we do not interpret differences in $\Delta_{\text{SP}}$ there as evidence of equity.
+    \item \textbf{Calibration is the consistent gain on larger cohorts.} On the real readmission cohort TRACER-Med has ECE $0.011 \pm 0.009$ against $0.039$ (DP-EDL), $0.063$ (DPSGD-F), and $0.079$ (DP-SGD), and on the simulated EHR cohort $0.084$ against $0.147$--$0.225$. On Pima it is similar to DP-EDL ($0.133$ versus $0.117$) and better than DP-SGD ($0.202$). On Statlog Heart it is worse ($0.203$ versus $0.079$ for DP-EDL). On the real cohort the gain comes with a lower ROC-AUC ($0.601$ versus $0.621$--$0.626$ for DP-SGD and DP-EDL). The ablation without prototype alignment has ECE $0.038$ on that cohort, so the alignment term accounts for most of the gain.
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig1_utility_vs_fairness.pdf}
+\caption{Clinical Utility (ROC-AUC) versus Algorithmic Fairness Disparity ($\Delta_{\text{SP}}$) across the four benchmarks. ROC-AUC versus statistical parity disparity on the three benchmarks; parity disparity does not separate the private models consistently.}
+\label{fig:utility_fairness}
+\end{figure}
+
+\subsection{Conformal Coverage and Vacuity}
+Figure~\ref{fig:conformal_coverage} shows empirical coverage at nominal miscoverage $\alpha_{\text{conf}} = 0.10$ (target $90\%$). We report the plug-in variant of Section~\ref{sec:dp_gccp} in Table~\ref{tab:main_results}, together with marginal coverage and set size, because a set size is only meaningful together with coverage.
+\begin{itemize}
+    \item \textbf{The PAC variant is vacuous at these calibration sizes.} The variant with the guarantee of Theorem~\ref{thm:conformal} returns the full set $\{0,1\}$ for all private models on Heart ($n_{\text{cal}}\approx 54$) and Pima ($\approx 154$), and for TRACER-Med on the two larger cohorts (a few thousand calibration records, but only $\approx 800$ in the smaller race group on the readmission cohort); DP-EDL reaches average size $1.59$ on the readmission cohort and $1.96$ on the simulated EHR cohort. The Monte Carlo check in \texttt{tests/test\_theory.py} confirms the guarantee holds and is vacuous at $n=200$.
+    \item \textbf{The plug-in variant undercovers on the smallest cohort.} On Statlog Heart, DP-SGD, DPSGD-F, and DP-EDL have coverage $0.81$--$0.82$ against the nominal $0.90$, because noise of scale $2/\epsilon_{\text{conf}}$ per bin on $\approx 54$ calibration records perturbs the cumulative distribution by several percentage points. TRACER-Med, whose conformal layer uses group-conditional shrinkage, has coverage $0.89$ with average size $1.51$. The variant without group-conditional calibration has coverage $0.92$ and size $1.51$, so the difference between the two conformal configurations is within noise, and the better coverage of TRACER-Med reflects its less peaked scores, not a demonstrated benefit of group-conditional calibration.
+    \item \textbf{Non-private references.} With exact split-conformal quantiles, the non-private models reach coverage $0.89$--$0.90$ with average size $1.26$--$1.39$ on Statlog Heart and $1.39$--$1.44$ on Pima, so the loss of informativeness and coverage above is due to the privacy noise on the quantile, not to the scores.
+    \item \textbf{Imbalanced outcomes make sets trivial.} On the readmission cohort (prevalence $9.2\%$, ROC-AUC $\approx 0.6$) every model, including non-private ones, returns the singleton $\{0\}$ for all patients with coverage $0.91$. This satisfies the coverage target and is uninformative.
+    \item \textbf{Simulated EHR cohort.} DP-SGD has vacuous sets (size $2.00$, coverage $1.00$). TRACER-Med has size $1.69$ with coverage $0.94$, DPSGD-F $1.64$ with $0.93$, and DP-EDL $1.77$ with $0.96$.
+\end{itemize}
+Private conformal prediction therefore remains difficult at these sample sizes, and we make no claim that DP-GCCP solves it.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.88\linewidth]{figures/fig2_conformal_subgroup_coverage.pdf}
+\caption{Conformal Calibration and Subgroup Coverage Equity on the Simulated Clinical EHR Cohort at nominal 90\% target coverage. Empirical coverage by demographic group for the evaluated models.}
+\label{fig:conformal_coverage}
+\end{figure}
+
+\subsection{Empirical Privacy Leakage Auditing}
+We audited all models with a loss-threshold membership-inference attack~\cite{shokri2017membership,yeom2018privacy}, following the audit guidance of Carlini et al.~\cite{carlini2022membership}. Non-private models leak noticeably on the small cohorts: MIA AUC is $0.585$--$0.611$ on Statlog Heart and $0.563$--$0.603$ on Pima for ERM, Fair-ERM, and EDL, against $0.504$--$0.537$ on the two larger cohorts. Private models have MIA AUC between $0.499$ and $0.543$. Among them TRACER-Med is low on all cohorts ($0.523$ on Heart, $0.510$ on Pima, and about $0.50$ on the two larger cohorts), below DP-SGD and DP-EDL by about $0.02$ on the small cohorts, and comparable to the PF-LD adaptation ($0.517$ and $0.509$), whose utility is lower. Empirical attacks lower-bound vulnerability and do not substitute for the formal guarantee, which is $(\epsilon, \delta)$-DP with the $\epsilon$ values of Section~\ref{sec:experiments}.
+
+\subsection{Noise-Multiplier Sweep}
+\label{sec:sweep}
+Table~\ref{tab:sweep} varies the noise multiplier over $0.8$, $1.5$, and $3.0$ for DP-SGD, DPSGD-F, the PF-LD adaptation, DP-EDL, and TRACER-Med (three splits per cell; $\epsilon$ is that of DP-SGD, and at equal $\sigma$ the accounted budget is $2.7$ to $6$ times larger for PF-LD and about $1.1$ times larger for TRACER-Med). On Statlog Heart the ROC-AUC of DP-SGD and DP-EDL stays at $0.89$ for $\epsilon$ from $27.7$ down to $4.1$, while that of TRACER-Med falls from $0.864$ to $0.708$ and that of PF-LD from $0.850$ to $0.776$, so the extra components are more sensitive to noise on $270$ patients. On Pima, PF-LD keeps $\Delta_{\text{EO}}$ at $0.09$--$0.12$ at every noise level while the other models are at $0.22$--$0.31$. On the real readmission cohort, TRACER-Med keeps ECE at $0.011$--$0.013$ against $0.026$--$0.080$ for the others, and its ROC-AUC is $0.593$--$0.601$ against $0.608$--$0.626$ for DP-SGD and DP-EDL. On the simulated EHR cohort, TRACER-Med has ECE $0.064$--$0.086$ against $0.120$--$0.237$. These calibration results hold at all three noise levels, whereas no consistent fairness advantage of TRACER-Med appears at any of them.
+
+\begin{sidewaystable}
+\centering
+\small
+\caption{Noise-multiplier sweep (mean over three splits): ROC-AUC and $\Delta_{\text{EO}}$ for DP-SGD, DPSGD-F, PF-LD (adapted), DP-EDL, and TRACER-Med. $\epsilon$ is that of DP-SGD at $\delta = 10^{-5}$.}
+\label{tab:sweep}
+\begingroup\scriptsize\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{llcccccccccc}
+\toprule
+ & & \multicolumn{5}{c}{ROC-AUC $\uparrow$} & \multicolumn{5}{c}{$\Delta_{\text{EO}}$ $\downarrow$} \\
+\cmidrule(lr){3-7}\cmidrule(lr){8-12}
+$\sigma_{\text{DP}}$ & $\epsilon$ & SGD & F & PF & EDL & TR & SGD & F & PF & EDL & TR \\
+\midrule
+\multicolumn{12}{l}{\emph{Statlog Heart Disease}} \\
+0.8 & 27.7 & 0.893 & 0.882 & 0.850 & 0.891 & 0.864 & 0.103 & 0.138 & 0.157 & 0.117 & 0.154 \\
+1.5 & 10.1 & 0.889 & 0.873 & 0.828 & 0.889 & 0.807 & 0.090 & 0.124 & 0.197 & 0.115 & 0.192 \\
+3.0 & 4.1 & 0.887 & 0.855 & 0.776 & 0.888 & 0.708 & 0.105 & 0.232 & 0.224 & 0.153 & 0.251 \\
+\midrule
+\multicolumn{12}{l}{\emph{Pima Indians Diabetes}} \\
+0.8 & 17.5 & 0.807 & 0.810 & 0.798 & 0.812 & 0.820 & 0.221 & 0.256 & 0.092 & 0.266 & 0.264 \\
+1.5 & 5.5 & 0.809 & 0.812 & 0.788 & 0.813 & 0.815 & 0.258 & 0.281 & 0.106 & 0.238 & 0.264 \\
+3.0 & 2.3 & 0.805 & 0.807 & 0.770 & 0.806 & 0.801 & 0.260 & 0.305 & 0.121 & 0.270 & 0.308 \\
+\midrule
+\multicolumn{12}{l}{\emph{Diabetes 130-US Hospitals, real}} \\
+0.8 & 5.2 & 0.621 & 0.611 & 0.559 & 0.626 & 0.601 & 0.077 & 0.064 & 0.066 & 0.084 & 0.047 \\
+1.5 & 1.5 & 0.618 & 0.595 & 0.540 & 0.625 & 0.601 & 0.055 & 0.093 & 0.056 & 0.075 & 0.063 \\
+3.0 & 0.6 & 0.608 & 0.599 & 0.527 & 0.624 & 0.593 & 0.075 & 0.092 & 0.043 & 0.071 & 0.060 \\
+\midrule
+\multicolumn{12}{l}{\emph{Simulated inpatient EHR cohort}} \\
+0.8 & 7.3 & 0.747 & 0.747 & 0.742 & 0.746 & 0.751 & 0.045 & 0.047 & 0.049 & 0.049 & 0.047 \\
+1.5 & 2.2 & 0.748 & 0.747 & 0.732 & 0.746 & 0.750 & 0.049 & 0.045 & 0.049 & 0.049 & 0.038 \\
+3.0 & 0.9 & 0.746 & 0.740 & 0.705 & 0.747 & 0.746 & 0.049 & 0.044 & 0.036 & 0.050 & 0.051 \\
+\bottomrule
+\end{tabular}
+\endgroup
+\end{sidewaystable}
+
+\subsection{Dual-Channel Dirichlet Attribution (DCDA)}
+Figure~\ref{fig:dual_xai} illustrates the attribution patterns generated by our Dual-Channel Dirichlet Attribution mechanism on representative inpatient deterioration episodes.
+\begin{itemize}
+    \item \textbf{Channel A (Diagnostic Risk Evidence):} Figure~\ref{fig:dual_xai} shows patient-specific attributions for six patients of the simulated cohort, relative to the training-mean baseline. For the first patient the largest positive contributions come from the Charlson comorbidity index ($0.41$), SOFA score ($0.20$), SpO$_2$ ($0.17$), and lactate ($0.11$). For the other five patients the attributions are smaller and of mixed sign, so the heatmap does not show one consistent set of drivers. We did not compare the attributions with clinical judgement or with the generating function of the simulation.
+    \item \textbf{Channel B (Epistemic Doubt):} The attributions of the epistemic mutual information are small ($|\Phi^{\text{doubt}}_j| \le 0.02$ nats) and patient specific; for example SOFA score contributes about $+0.02$ for the sixth patient and age and lactate about $+0.01$ for the fifth. We have not evaluated whether these attributions help clinicians, and the clinical readings suggested earlier for the two channels remain hypotheses.
+\end{itemize}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\linewidth]{figures/fig3_dual_channel_attribution.pdf}
+\caption{Dual-Channel Dirichlet Attribution (DCDA) heatmaps for illustrative acute clinical deterioration cases. Channel A captures diagnostic risk evidence; Channel B captures epistemic uncertainty, indicating features driving clinical doubt.}
+\label{fig:dual_xai}
+\end{figure}
+
+\subsection{Holistic Multi-Pillar Trustworthiness Profile}
+Figure~\ref{fig:trustworthiness_radar} illustrates the multi-pillar radar profiles comparing TRACER-Med with baseline paradigms across five core clinical trustworthiness dimensions: diagnostic discrimination (ROC-AUC), calibration (1 - ECE), algorithmic fairness equity (1 - $\Delta_{\text{EO}}$), empirical privacy resistance (1 - MIA AUC), and conformal coverage equity (1 - Cov. Gap). The profiles show a trade-off, not a resolution of the trilemma: calibration improves on the larger cohorts while fairness and conformal informativeness do not improve on the smaller ones.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.92\linewidth]{figures/fig4_trustworthiness_profile.pdf}
+\caption{Multi-pillar Trustworthiness Profile across clinical utility (ROC-AUC), calibration (1 - ECE), equalized odds equity (1 - $\Delta_{\text{EO}}$), empirical privacy resistance (1 - MIA AUC), and conformal coverage equity (1 - Cov. Gap). Comparison of TRACER-Med with ERM, DP-SGD, and Fair-ERM.}
+\label{fig:trustworthiness_radar}
+\end{figure}
+
+\subsection{Ablation Studies}
+Table~\ref{tab:ablation} removes one module at a time on the same splits at $\sigma_{\text{DP}}=0.8$.
+\begin{enumerate}
+    \item \emph{Removing prototype alignment (w/o PC-PAT).} This is the module with the clearest effect. On the real readmission cohort ECE rises from $0.011$ to $0.038$ and on the simulated EHR cohort from $0.084$ to $0.142$ without it, and ROC-AUC rises by about $0.02$ on the readmission cohort ($0.601$ to $0.622$) and by $0.026$ on Statlog Heart ($0.864$ to $0.890$). On Statlog Heart, removal also lowers $\Delta_{\text{EO}}$ ($0.154$ to $0.106$) and ECE ($0.203$ to $0.080$). Disparities on Pima and the simulated cohort are unchanged within one standard deviation. The alignment term therefore trades some discrimination for calibration on the larger cohorts and hurts the smallest one.
+    \item \emph{Removing subgroup-calibrated clipping (w/o REF-DP).} With privately estimated Fisher-metric weights, REF-DP shows no consistent benefit. On Statlog Heart, uniform clipping is better on every reported metric (ROC-AUC $0.885$ versus $0.864$, $\Delta_{\text{SP}}$ $0.244$ versus $0.310$, $\Delta_{\text{EO}}$ $0.074$ versus $0.154$). On the readmission cohort REF-DP lowers $\Delta_{\text{EO}}$ ($0.047$ versus $0.086$) but also ROC-AUC ($0.601$ versus $0.621$); the difference in $\Delta_{\text{EO}}$ is about $1.1$ standard deviations. On Pima and the simulated cohort the differences are negligible. The privacy accounting of the statistics release also raises $\epsilon$ by $2$--$13\%$. The motivation for REF-DP, preventing minority gradient truncation, is not supported by these benchmarks. The exponents in the weight formula are design choices, and other choices might behave differently.
+    \item \emph{Removing group-conditional conformal calibration (w/o DP-GCCP).} The underlying models are identical, and only the conformal layer differs. Coverage and set size change by at most $0.03$ and $0.22$ (largest on Pima: $1.71$ versus $1.50$, with coverage $0.92$ in both), so we cannot attribute informative sets to the group-conditional mechanism at these sample sizes.
+\end{enumerate}
+
+\begin{sidewaystable}
+\centering
+\caption{Ablation analysis on the four benchmarks at $\sigma_{\text{DP}}=0.8$ (mean $\pm$ std over 3 random splits). Bold marks the best value within each benchmark among the four configurations. Cov. and Set are the coverage and average size of the plug-in conformal sets.}
+\label{tab:ablation}
+\begingroup\scriptsize\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{Configuration} & $\epsilon$ & \textbf{ROC-AUC} $\uparrow$ & \textbf{ECE} $\downarrow$ & $\Delta_{\text{SP}}$ $\downarrow$ & $\Delta_{\text{EO}}$ $\downarrow$ & \textbf{Cov.} & \textbf{Set} \\
+\midrule
+\multicolumn{8}{l}{\emph{Statlog Heart Disease}} \\
+\textbf{TRACER-Med (full)} & 28.2 & $0.864 \pm 0.016$ & $0.203 \pm 0.020$ & $0.310 \pm 0.066$ & $0.154 \pm 0.073$ & $0.89$ & $1.50$ \\
+\quad w/o REF-DP (uniform clipping) & 27.7 & $0.885 \pm 0.032$ & $0.194 \pm 0.028$ & $\mathbf{0.244} \pm \mathbf{0.048}$ & $\mathbf{0.074} \pm \mathbf{0.008}$ & $0.91$ & $1.51$ \\
+\quad w/o PC-PAT (no prototype alignment) & 28.2 & $\mathbf{0.890} \pm \mathbf{0.033}$ & $\mathbf{0.080} \pm \mathbf{0.011}$ & $0.292 \pm 0.062$ & $0.106 \pm 0.072$ & $0.88$ & $1.22$ \\
+\quad w/o group-conditional conformal & 28.2 & $0.864 \pm 0.016$ & $0.203 \pm 0.020$ & $0.310 \pm 0.066$ & $0.154 \pm 0.073$ & $0.92$ & $1.50$ \\
+\midrule
+\multicolumn{8}{l}{\emph{Pima Indians Diabetes}} \\
+\textbf{TRACER-Med (full)} & 18.0 & $\mathbf{0.820} \pm \mathbf{0.017}$ & $0.133 \pm 0.015$ & $0.400 \pm 0.040$ & $0.264 \pm 0.031$ & $0.92$ & $1.71$ \\
+\quad w/o REF-DP (uniform clipping) & 17.5 & $0.818 \pm 0.016$ & $0.134 \pm 0.006$ & $\mathbf{0.399} \pm \mathbf{0.028}$ & $0.272 \pm 0.050$ & $0.91$ & $1.70$ \\
+\quad w/o PC-PAT (no prototype alignment) & 18.0 & $0.814 \pm 0.024$ & $\mathbf{0.112} \pm \mathbf{0.020}$ & $0.403 \pm 0.020$ & $\mathbf{0.259} \pm \mathbf{0.062}$ & $0.90$ & $1.58$ \\
+\quad w/o group-conditional conformal & 18.0 & $\mathbf{0.820} \pm \mathbf{0.017}$ & $0.133 \pm 0.015$ & $0.400 \pm 0.040$ & $0.264 \pm 0.031$ & $0.91$ & $1.49$ \\
+\midrule
+\multicolumn{8}{l}{\emph{Diabetes 130-US Hospitals, real}} \\
+\textbf{TRACER-Med (full)} & 5.8 & $0.601 \pm 0.001$ & $\mathbf{0.011} \pm \mathbf{0.009}$ & $0.042 \pm 0.032$ & $\mathbf{0.047} \pm \mathbf{0.036}$ & $0.91$ & $1.00$ \\
+\quad w/o REF-DP (uniform clipping) & 5.2 & $0.621 \pm 0.010$ & $0.015 \pm 0.003$ & $0.066 \pm 0.012$ & $0.086 \pm 0.035$ & $0.91$ & $1.00$ \\
+\quad w/o PC-PAT (no prototype alignment) & 5.8 & $\mathbf{0.622} \pm \mathbf{0.015}$ & $0.038 \pm 0.002$ & $\mathbf{0.036} \pm \mathbf{0.039}$ & $0.072 \pm 0.053$ & $0.91$ & $1.00$ \\
+\quad w/o group-conditional conformal & 5.8 & $0.601 \pm 0.001$ & $\mathbf{0.011} \pm \mathbf{0.009}$ & $0.042 \pm 0.032$ & $\mathbf{0.047} \pm \mathbf{0.036}$ & $0.91$ & $1.00$ \\
+\midrule
+\multicolumn{8}{l}{\emph{Simulated inpatient EHR cohort}} \\
+\textbf{TRACER-Med (full)} & 8.0 & $\mathbf{0.751} \pm \mathbf{0.004}$ & $\mathbf{0.084} \pm \mathbf{0.004}$ & $\mathbf{0.017} \pm \mathbf{0.008}$ & $0.047 \pm 0.019$ & $0.94$ & $1.69$ \\
+\quad w/o REF-DP (uniform clipping) & 7.3 & $0.751 \pm 0.004$ & $0.096 \pm 0.005$ & $0.025 \pm 0.015$ & $0.046 \pm 0.027$ & $0.92$ & $1.61$ \\
+\quad w/o PC-PAT (no prototype alignment) & 8.0 & $0.748 \pm 0.006$ & $0.142 \pm 0.003$ & $0.023 \pm 0.011$ & $\mathbf{0.044} \pm \mathbf{0.023}$ & $0.97$ & $1.80$ \\
+\quad w/o group-conditional conformal & 8.0 & $\mathbf{0.751} \pm \mathbf{0.004}$ & $\mathbf{0.084} \pm \mathbf{0.004}$ & $\mathbf{0.017} \pm \mathbf{0.008}$ & $0.047 \pm 0.019$ & $0.96$ & $1.77$ \\
+\bottomrule
+\end{tabular}
+\endgroup
+\end{sidewaystable}
+
+\subsection{Numerical Verification of the Analytical Statements}
+\label{sec:verification}
+We audited the analytical statements of Section~\ref{sec:method} against the implementation and with numerical checks (\texttt{tests/test\_theory.py}; every check passes except the one that records the refuted completeness-residual claim of the earlier version). Verified: the closed-form inverse of the Dirichlet Fisher metric (maximum error $10^{-13}$) and the Fisher metric itself against a Monte Carlo estimate of the score covariance; the gradient of the Bayes loss with respect to $\boldsymbol{\alpha}$; the epistemic mutual information formula against Monte Carlo; the Poisson-subsampled Gaussian accountant against the Opacus implementation (relative error $<10^{-12}$); independence of the PC-PAT per-sample gradients from other records in the batch; the Wasserstein bound of Proposition~\ref{prop:wasserstein_bound} on a one-dimensional example; and the coverage guarantee of Theorem~\ref{thm:conformal} by simulation (coverage at least $0.90$ in all $150$ trials at $n=1{,}500$ and $n=4{,}000$, and trivially so at $n=200$, where the sets are vacuous). Corrected relative to an earlier version of this work: (i) the training code used batch-level Sliced Wasserstein adjoints whose per-sample gradients depend on other records, contradicting the per-sample independence on which Theorem~\ref{thm:privacy} relies, and the code and reported results now use the per-sample prototype loss; (ii) the earlier accountant used an approximation that is not an upper bound and shuffled, not Poisson, batches, and the reported $\epsilon$ values were not reproducible; (iii) the REF-DP weights used fixed hand-chosen priors and the training-set prevalence without accounting, with exponents different from those in the text, and they are now estimated by an accounted private release; (iv) the conformal implementation clamped and renormalized the noisy histogram and capped the threshold, so the coverage theorem did not apply to it, and it now follows the theorem (PAC variant) or is reported as a plug-in variant without a guarantee; (v) the claimed residual of DCDA completeness below $10^{-4}$ does not hold (about $2\times 10^{-3}$); (vi) experiments use the training-mean attribution baseline, not the physiological baselines described earlier; (vii) fairness metrics were evaluated at a fixed threshold of $0.5$, which made a model that rarely predicts positives appear fair, and they now use a common calibration-split operating point; (viii) a reference was cited with the title and venue of a different paper. Not verified: the non-asymptotic statements about the Bernstein step were re-derived by hand but are not machine-checked, and the end-to-end combination of the training and calibration guarantees is reported as two separate budgets because their adjacency notions differ.
+
+\section{Discussion}
+\label{sec:governance}
+
+\subsection{Regulatory Alignment (FDA GMLP, PCCP, HHS, EU AI Act)}
+Regulatory frameworks increasingly mandate comprehensive documentation and formal risk controls for clinical AI algorithms. TRACER-Med is designed to support the technical documentation required under international regulatory guidelines:
+\begin{itemize}
+    \item \textbf{FDA Good Machine Learning Practice (GMLP):} The U.S. FDA, Health Canada, and UK MHRA established 10 Guiding Principles for GMLP in medical device development~\cite{fda2021gmlp}. TRACER-Med supports Principle 3 (addressing training data representativeness and subgroup gradient balance via REF-DP and PC-PAT), Principle 6 (tailored model design separating aleatoric from epistemic uncertainty), Principle 7 (focusing on human-AI clinical team performance via dual-channel risk and doubt attributions), and Principle 9 (providing clear, contextually relevant information through distribution-free conformal safety bounds and uncertainty metrics).
+    \item \textbf{FDA Predetermined Change Control Plans (PCCP):} Under the FDA's finalized guidance on Predetermined Change Control Plans for AI-Enabled Device Software Functions (issued December 2024~\cite{fda2024pccp}), manufacturers must specify predetermined modification protocols for post-market model updates. TRACER-Med's formal Differential Privacy parameters $(\epsilon, \delta)$ and distribution-free conformal calibration bounds establish quantifiable guardrails for model retraining, while accounting for privacy loss accumulation across release cycles.
+    \item \textbf{EU AI Act and HHS Section 1557:} Under the European Union Artificial Intelligence Act (Regulation (EU) 2024/1689~\cite{euaiact2024}), medical diagnostic AI systems classified as High-Risk AI Systems under Annex I (governed by MDR/IVDR) are subject to technical verification of risk management (Article 9), data governance (Article 10), technical documentation (Article 11), record-keeping (Article 12), transparency (Article 13), human oversight (Article 14), and accuracy/robustness (Article 15). In parallel, U.S. HHS Section 1557 rules (45 CFR §92.210) prohibit discriminatory algorithmic practices in healthcare programs. TRACER-Med supports technical documentation by quantifying demographic error disparity (for example $\Delta_{\text{EO}} = 0.154$ on cardiovascular data and $0.264$ on metabolic data, which are not lower than those of the baselines), enabling auditable clinical equity reviews.
+\end{itemize}
+
+\subsection{Clinical Workflow Integration and Selective Abstention}
+In practical clinical environments, TRACER-Med can be structured as an augmented decision-support co-pilot:
+\begin{enumerate}
+    \item When a patient profile yields a singleton prediction set $\mathcal{C}(\mathbf{x}) = \{k\}$ accompanied by low relative vacuity ($u \le u_{\text{thresh}}$, calibrated to the lower tertile of validation cohort evidence where total evidence $S \ge 4.0$), the system provides a high-confidence diagnostic alert supported by Channel A biomarker attributions.
+    \item When the prediction set is indeterminate ($\mathcal{C}(\mathbf{x}) = \{0, 1\}$) or epistemic uncertainty is elevated ($u > u_{\text{thresh}}$), the system abstains from automated recommendations, routing the case to clinician review while presenting Channel B uncertainty attributions to identify ambiguous or missing physiological parameters.
+\end{enumerate}
+
+\subsection{Limitations and Future Work}
+Several important limitations should be acknowledged:
+\begin{itemize}
+    \item \emph{Inference-Time Demographic Requirement:} Group-conditional conformal prediction requires sensitive attribute $A$ at test time to select the cohort-specific threshold $\hat{q}_a$. While demographic covariates are standard in clinical EHR charts, future work should explore group-oblivious conformal procedures.
+    \item \emph{Privacy Budgets:} At noise multiplier $0.8$ the exact accountant gives $\epsilon = 27.7$ (Heart), $17.5$ (Pima), $5.2$ (readmission), and $7.3$ (simulated EHR) for DP-SGD; the sweep reaches $4.1$, $2.3$, $0.6$, and $0.9$ at noise multiplier $3.0$. Budgets above roughly $10$ do not provide meaningful protection against a strong adversary. Preprocessing statistics are not privatized.
+    \item \emph{Utility Under Heavy Noise on Small Cohorts:} On Statlog Heart, the ROC-AUC of TRACER-Med falls from $0.864$ to $0.708$ as the noise multiplier increases from $0.8$ to $3.0$, whereas DP-SGD and DP-EDL stay near $0.89$.
+    \item \emph{Private Conformal Prediction on Small Cohorts:} The PAC variant is vacuous below roughly $1{,}300$ calibration records, and the plug-in variant undercovers ($0.81$--$0.82$ for three baselines on Statlog Heart) or returns trivial sets on imbalanced outcomes.
+    \item \emph{No Equalized Odds Gain and Unsupported REF-DP:} We observed no reduction in Equalized Odds disparity relative to the private baselines on the small cohorts, a larger reduction by the PF-LD adaptation, and no consistent benefit of group-specific clipping thresholds.
+    \item \emph{Approximate Baselines:} DPSGD-F follows its published algorithm but is our reimplementation. PF-LD is an adaptation of a method whose original guarantee protects only the sensitive attribute, with hyperparameters chosen on the evaluation splits.
+    \item \emph{One Real Cohort with Weak Signal:} The real readmission cohort has ROC-AUC near $0.6$ and small disparities, so it is a weak test of fairness methods. Larger real cohorts with stronger signal, for example credentialed ICU databases, remain to be evaluated.
+    \item \emph{Binary Demographic Attributes:} The present formulation focuses on binary sensitive attributes ($a \in \{0, 1\}$). Extending REF-DP and DP-GCCP to continuous attributes or multi-attribute intersections (e.g., age $\times$ sex $\times$ race) requires multi-dimensional quantile estimation.
+    \item \emph{Longitudinal Dynamics:} While the current study evaluates static clinical episodes, future research should integrate recurrent or state-space models to capture longitudinal ICU time series.
+    \item \emph{Synthetic Cohort:} The 10,000-patient EHR cohort is synthetic with hand-specified, independent feature distributions, so it is not a substitute for evaluation on real multi-center clinical data.
+\end{itemize}
+
+\section{Conclusions}
+\label{sec:conclusion}
+Deploying trustworthy artificial intelligence in healthcare requires balancing the tensions between patient data privacy, demographic fairness, uncertainty quantification, and explainability. We presented \textbf{TRACER-Med}, an integrated deep learning framework addressing the Privacy--Fairness--Uncertainty Trilemma. By combining Evidential Dirichlet Deep Learning, Riemannian Evidential-Fisher Subgroup-Calibrated DP-SGD, class-conditional prototypical anchor representation alignment, Differentially Private Group-Conditional Conformal Prediction, and Dual-Channel Dirichlet Attribution, In experiments on four cohorts, one of them real, with an exact privacy accountant and a common operating point, TRACER-Med gives markedly better calibration than the private baselines on the two larger cohorts at all tested noise levels, and low empirical membership-inference AUC. It does not reduce Equalized Odds disparity relative to the private baselines, an adapted private Lagrangian-dual baseline reduces disparity more, its private conformal layer is uninformative or undercovers on small cohorts, its utility falls under heavy noise on Statlog Heart, and subgroup-calibrated clipping shows no consistent benefit. A numerical audit also corrected several statements of an earlier version. These results motivate study on larger real-world cohorts with stronger signal, on conformal procedures that remain informative under privacy, and on fairness terms that do not trade away calibration.
+
+
+\section*{List of abbreviations}
+\noindent AUC: area under the receiver operating characteristic curve; DCDA: dual-channel Dirichlet attribution; DP: differential privacy; DP-EDL: evidential deep learning trained with DP-SGD; DP-GCCP: differentially private group-conditional conformal prediction; DP-SGD: differentially private stochastic gradient descent; ECE: expected calibration error; EO: equalized odds; MIA: membership inference attack; PC-PAT: privatized class-conditional prototypical anchor transport; PF-LD: private and fair Lagrangian dual; RDP: R\'enyi differential privacy; REF-DP: Riemannian evidential-Fisher subgroup-calibrated DP-SGD; SP: statistical parity.
+
+\section*{Declarations}
+
+\bmhead{Ethics approval and consent to participate}
+Not applicable. This study is a secondary analysis of publicly available, de-identified datasets (Statlog Heart Disease, OpenML ID 53; Pima Indians Diabetes, OpenML ID 37; Diabetes 130-US Hospitals, UCI repository) and of a synthetic cohort that contains no protected health information. Under 45 CFR 46.102 this does not constitute human subjects research and review by an ethics committee was not required. We acknowledge the historical and tribal data-governance considerations that surround the Pima Indians Diabetes data and the importance of Indigenous data sovereignty.
+
+\bmhead{Consent for publication}
+Not applicable.
+
+\bmhead{Availability of data and materials}
+The source code, benchmark preparation scripts, the synthetic data generator, result files, and numerical checks are available at \url{https://github.com/vinhqdang/biomedical_privacy_research}. The Statlog Heart Disease and Pima Indians Diabetes data are available from OpenML (IDs 53 and 37), and the Diabetes 130-US Hospitals data from the UCI Machine Learning Repository (downloaded by the data loader). The simulated cohort is generated by the released code.
+
+\bmhead{Competing interests}
+The author declares that there are no competing interests.
+
+\bmhead{Funding}
+This research did not receive any specific grant from funding agencies in the public, commercial, or not-for-profit sectors.
+
+\bmhead{Authors' contributions}
+QVD conceived and designed the study, implemented the methods, performed the analyses, interpreted the results, and wrote the manuscript. The author read and approved the final manuscript.
+
+\bmhead{Acknowledgements}
+Not applicable.
+
+\bmhead{Use of generative AI}
+Generative AI tools were used to assist with code development, literature cross-referencing, and language editing. The author reviewed and edited all content and takes full responsibility for it.
+
+\bibliography{../references}
+
+\end{document}

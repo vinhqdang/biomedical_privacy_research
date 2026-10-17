@@ -69,8 +69,8 @@ def load_pima_diabetes(data_dir="data"):
 
 def load_clinical_ehr_cohort(data_dir="data", n_samples=10000, seed=42):
     """
-    Standardized Multi-Center Inpatient EHR Cohort (mimicking MIMIC-IV & eICU structures)
-    Includes physiological vitals, critical laboratory panels, and comorbidity indices.
+    Synthetic inpatient EHR cohort with hand-specified, independent feature distributions
+    (not fitted to MIMIC-IV or eICU). Includes vitals, laboratory values, and acuity and comorbidity scores.
     Sensitive attribute: sensitive_group (0: underrepresented demographic cohort, 1: reference cohort)
     Target: 30-day acute clinical deterioration / ICU mortality risk
     """
