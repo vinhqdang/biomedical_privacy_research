@@ -87,3 +87,29 @@
 *Artificial Intelligence in Medicine* rejected the manuscript without review. The Editor-in-Chief's comment: the journal requires novelty in methodological and/or theoretical content in AI and computer science, shown through experimental evaluation, comparison with other proposals and explicit discussion of novelty. Applying well-known or published techniques to medical data is not regarded as original research for the journal.
 
 Next step: reposition the contribution around its methodological novelty (REF-DP, PC-PAT, DP-GCCP, DCDA) and resubmit to a suitable venue.
+
+
+---
+
+# Submission 2: BMC Medical Informatics and Decision Making
+
+**Date submitted:** October 17, 2026
+**Status:** Submitted (manuscript number: to be added when received)
+**Article type:** Research article
+**Title:** TRACER-Med: differentially private evidential learning with prototype alignment and conformal prediction for clinical risk prediction
+
+**Authors:** Quang-Vinh Dang (submitting author, British University Vietnam), Dat Le (corresponding author, Ho Chi Minh City University of Economics and Finance), Minh Ngoc Dinh (Millennia Education)
+
+**Submitted files** (in `manuscript/bmc/`): `main_bmc.tex` with `main_bmc.bbl` and `main_bmc.pdf`; figures in `manuscript/figures/`; `additional_file_1.csv` (main results); `additional_file_2.csv` (noise sweep); `cover_letter_bmc.pdf`.
+**Author contributions statement** (entered in the submission form): Q.-V.D. conceived and designed the study, implemented the methods, ran the experiments and analyses, prepared the figures and tables, and wrote the main manuscript text. D.L. contributed to the study design and methodology, interpreted the results, and critically revised the manuscript. M.N.D. contributed to data preparation and validation of the analyses, and critically revised the manuscript. All authors reviewed and approved the final manuscript.
+**Declarations:** no funding, no competing interests, no ethics approval required (public de-identified and synthetic data).
+**Archived code version cited in the manuscript:** git commit `e8ed36b`.
+
+**Previous submission:** *Artificial Intelligence in Medicine* (Elsevier), rejected without review on October 16, 2026 (see above).
+
+### Open items
+- Add a Zenodo (or similar) DOI for the code and replace the commit reference in the Availability section if the journal asks for it.
+- Reference list uses full journal names; BMC asks for Index Medicus/MEDLINE abbreviations. Fix if requested at revision.
+- No reviewers were suggested in the cover letter.
+- Keep `manuscript/bmc/main_bmc.tex` (generated from `manuscript/main.tex`) in sync when preparing a revision.
+- Key limitations stated in the paper: weak privacy budgets at noise multiplier 0.8; no Equalized Odds gain over the private baselines; REF-DP shows no consistent benefit; private conformal sets are uninformative on small cohorts; one real cohort with weak signal; PF-LD is an adaptation tuned on the evaluation splits.
