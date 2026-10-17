@@ -49,8 +49,11 @@ biomedical_privacy_research/
 ├── experiments/                 # Benchmark experiment orchestration
 │   ├── run_all_experiments.py   # Full benchmark execution and figure generation
 │   ├── make_tables.py           # Builds the manuscript LaTeX tables from results CSV
+│   ├── run_noise_sweep.py       # Noise-multiplier sweep (results/noise_sweep.csv)
 │   └── results/                 # Structured CSV and JSON benchmark results
 ├── figures/                     # Root-level publication figures
+├── tests/
+│   └── test_theory.py           # Numerical checks of the analytical statements
 ├── LICENSE                      # BSD-3-Clause License
 └── README.md                    # Repository documentation
 ```

@@ -1,12 +1,15 @@
 """
-Evidential-Fisher Subgroup-Calibrated Differentially Private Optimizer (EF-SC-DP)
-Vectorized PyTorch implementation leveraging torch.func (vmap + grad).
+Vectorized differentially private optimizers (torch.func vmap + grad) with RDP accounting.
 
-Dynamically balances Signal-to-Noise Ratio (SNR) and information-geometric curvature
-across demographic subgroups under Evidential Dirichlet priors:
-C_a = C_0 * (S_bar_pop / S_bar_a)^kappa * (1 / (2 * p_a))^gamma
-ensuring that lower-evidence / underrepresented cohorts receive calibrated gradient clipping thresholds
-governed by global worst-case sensitivity C_max under Rényi Differential Privacy.
+Modes
+  uniform : standard DP-SGD with one clipping bound C_0.
+  refdp   : REF-DP. Group clipping bounds C_a = C_0 * w_a with weights from the Dirichlet Fisher metric,
+            w_a = (F_a / F_pop)^(1/2) (1 / (2 p_a))^(1/2), normalized so that sum_a p_a w_a^2 = 1.
+            F_a = Tr G(alpha_bar_a) and p_a are estimated from the training data by a Gaussian-mechanism
+            release (clipped per-record counts and evidence sums) whose RDP cost is added to the accountant.
+  dpsgdf  : DPSGD-F (Xu, Du, Wu), Algorithm 2: per-group bounds from a noisy count of clipped samples,
+            C^k = C_0 (1 + (m_k / b_k) / (m / b)), noise scales sigma_1 = 10 sigma_2.
+Noise is always calibrated to the worst-case bound max_a C_a. Poisson sampling is done by the caller.
 """
 
 import math
@@ -50,147 +53,160 @@ def rdp_to_dp(rdp_dict, target_delta=1e-5):
             epsilons.append(eps)
     return min(epsilons) if epsilons else float('inf')
 
+
+def _psi1(x):
+    return torch.special.polygamma(1, x)
+
+
 class VectorizedSCDPOptimizer:
-    def __init__(self, model, optimizer, max_grad_norm=1.0, noise_multiplier=0.8,
-                 subgroup_balance=True, gamma=0.5, kappa=0.25, 
-                 p0=0.5, p1=0.5, s0_prior=2.5, s1_prior=3.0, target_delta=1e-5,
-                 adaptive_group_clip=False, adaptive_cap=2.0):
-        """
-        model: nn.Module
-        optimizer: torch.optim.Optimizer (e.g. Adam post-processing)
-        max_grad_norm: base clipping bound C_0
-        noise_multiplier: sigma
-        subgroup_balance: bool, whether to apply Evidential-Fisher group calibration
-        gamma: demographic prevalence exponent in [0, 1]
-        kappa: evidential curvature exponent in [0, 1]
-        p0, p1: population demographic prevalence (fixed priors from epidemiological registries)
-        s0_prior, s1_prior: prior mean evidence strengths for each cohort
-        target_delta: failure probability delta in DP
-        """
+    def __init__(self, model, optimizer, max_grad_norm=1.0, noise_multiplier=0.8, mode="uniform",
+                 gamma=0.5, kappa=0.5, alpha_cap=11.0, stats_sigma=3.0, dpsgdf_sigma1_mult=10.0,
+                 dpsgdf_ratio_cap=10.0, target_delta=1e-5):
         self.model = model
         self.optimizer = optimizer
         self.max_grad_norm = max_grad_norm
         self.noise_multiplier = noise_multiplier
-        self.subgroup_balance = subgroup_balance
+        self.mode = mode
         self.gamma = gamma
         self.kappa = kappa
+        self.alpha_cap = alpha_cap
+        self.stats_sigma = stats_sigma
+        self.sigma1 = dpsgdf_sigma1_mult * noise_multiplier
+        self.ratio_cap = dpsgdf_ratio_cap
         self.target_delta = target_delta
-        # DPSGD-F-style baseline: group thresholds follow the batch mean per-sample
-        # gradient norm of each group, bounded to [0.25 C, adaptive_cap * C].
-        self.adaptive_group_clip = adaptive_group_clip
-        self.adaptive_cap = adaptive_cap
 
-        # Calculate closed-form Evidential-Fisher sensitivity weights
-        # Lower baseline evidence S_bar_a implies higher gradient variance, warranting larger clipping threshold
-        if subgroup_balance:
-            s_pop = p0 * s0_prior + p1 * s1_prior
-            demog_0 = (1.0 / (2.0 * max(p0, 1e-4))) ** gamma
-            demog_1 = (1.0 / (2.0 * max(p1, 1e-4))) ** gamma
-            
-            # Evidence ratio: S_pop / S_a (larger for lower-evidence group)
-            curv_0 = (s_pop / max(s0_prior, 1e-4)) ** kappa
-            curv_1 = (s_pop / max(s1_prior, 1e-4)) ** kappa
-            
-            raw_w0 = demog_0 * curv_0
-            raw_w1 = demog_1 * curv_1
-            
-            norm_c = math.sqrt(p0 * (raw_w0 ** 2) + p1 * (raw_w1 ** 2))
-            self.w0 = raw_w0 / max(norm_c, 1e-6)
-            self.w1 = raw_w1 / max(norm_c, 1e-6)
-        else:
-            self.w0 = 1.0
-            self.w1 = 1.0
-            
-        # Global worst-case L2 sensitivity bound across groups
-        self.c_max = self.max_grad_norm * max(self.w0, self.w1, 1.0)
-        if adaptive_group_clip:
-            self.c_max = self.max_grad_norm * adaptive_cap
-        
-        # Privacy tracking
+        self.w = [1.0, 1.0]
+        self.c_max = self.max_grad_norm
         self.steps = 0
         self.rdp_orders = list(range(2, 129))
-        self.total_rdp = {alpha: 0.0 for alpha in self.rdp_orders}
+        self.total_rdp = {a: 0.0 for a in self.rdp_orders}
+        self.last_group_stats = None
 
-    def step(self, loss_per_sample_fn, bx, by, bs, extra_args=None, q_subsample=0.01, expected_batch_size=32):
-        """
-        Executes vectorized per-sample clipping and noise injection.
-        loss_per_sample_fn: callable(params, x_i, y_i, s_i) or callable(params, x_i, y_i, s_i, extra_i)
-        bx: batch features (B, D)
-        by: batch targets (B,)
-        bs: batch sensitive attributes (B,)
-        extra_args: optional batch of per-sample tensors (e.g. adjoint sensitivity vectors) (B, ...)
-        q_subsample: Poisson subsampling probability (E[B] / N_tr)
-        expected_batch_size: fixed denominator to prevent batch-size data leakage
-        """
+    def _add_rdp(self, q, sigma, times=1):
+        if sigma <= 0:
+            return
+        for a in self.rdp_orders:
+            self.total_rdp[a] += times * compute_rdp(q, sigma, a)
+
+    def refresh_group_weights(self, X, s):
+        """REF-DP: private release of group counts and mean Dirichlet parameters, then Fisher-based weights."""
+        if self.mode != "refdp":
+            return
+        self.model.eval()
+        with torch.no_grad():
+            _, alpha, _, _ = self.model(X)
+        self.model.train()
+        e = torch.clamp(alpha - 1.0, 0.0, self.alpha_cap - 1.0)
+        K = e.size(1)
+        sens = math.sqrt(1.0 + K * (self.alpha_cap - 1.0) ** 2)
+        n = torch.zeros(2); esum = torch.zeros(2, K)
+        for g in (0, 1):
+            m = (s == g)
+            n[g] = m.sum().float(); esum[g] = e[m].sum(0)
+        noise_sd = self.stats_sigma * sens
+        n_t = n + torch.randn(2) * noise_sd
+        e_t = esum + torch.randn(2, K) * noise_sd
+        self._add_rdp(1.0, self.stats_sigma)
+        n_t = torch.clamp(n_t, min=2.0)
+        p = n_t / n_t.sum()
+        p = torch.clamp(p, 0.02, 0.98); p = p / p.sum()
+        a_bar = 1.0 + torch.clamp(e_t / n_t.unsqueeze(1), 0.0, self.alpha_cap - 1.0)
+        S_bar = a_bar.sum(1)
+        F = _psi1(a_bar).sum(1) - _psi1(S_bar)
+        F_pop = float((p * F).sum())
+        raw = [((float(F[g]) / max(F_pop, 1e-8)) ** self.kappa) * ((1.0 / (2.0 * float(p[g]))) ** self.gamma) for g in (0, 1)]
+        norm = math.sqrt(sum(float(p[g]) * raw[g] ** 2 for g in (0, 1)))
+        self.w = [r / max(norm, 1e-8) for r in raw]
+        self.c_max = self.max_grad_norm * max(self.w)
+        self.last_group_stats = {"p": p.tolist(), "F": F.tolist(), "w": self.w}
+
+    def step(self, loss_per_sample_fn, bx, by, bs, extra_args=None, q_subsample=0.01, expected_batch_size=32,
+             extra_grads=None):
         batch_size = bx.size(0)
         device = bx.device
         norm_factor = max(expected_batch_size, 1)
         params = {k: v for k, v in self.model.named_parameters() if v.requires_grad}
-        
-        # 1. Compute per-sample gradients in parallel via torch.func.vmap
+
         grad_fn = grad(loss_per_sample_fn)
         if extra_args is not None:
-            vmap_grad_fn = vmap(grad_fn, in_dims=(None, 0, 0, 0, 0), randomness='different')
-            per_sample_grads = vmap_grad_fn(params, bx, by, bs, extra_args)
+            per_sample_grads = vmap(grad_fn, in_dims=(None, 0, 0, 0, 0), randomness='different')(params, bx, by, bs, extra_args)
         else:
-            vmap_grad_fn = vmap(grad_fn, in_dims=(None, 0, 0, 0), randomness='different')
-            per_sample_grads = vmap_grad_fn(params, bx, by, bs)
-        
-        # 2. Compute per-sample L2 norms across all parameter tensors
-        per_sample_norms_sq = torch.zeros(batch_size, device=device)
-        for p_name, p_grad in per_sample_grads.items():
-            flat_grad = p_grad.reshape(batch_size, -1)
-            per_sample_norms_sq += torch.sum(flat_grad ** 2, dim=1)
-        per_sample_norms = torch.sqrt(per_sample_norms_sq + 1e-8)
-        
-        # 3. Compute group-calibrated clipping threshold C_a
-        group_weights = torch.where(bs == 0, float(self.w0), float(self.w1)).to(device)
-        group_clipping_bounds = self.max_grad_norm * group_weights
-        if self.adaptive_group_clip:
-            bounds = torch.full_like(per_sample_norms, self.max_grad_norm)
-            for g in (0, 1):
-                mask = bs == g
-                if mask.any():
-                    thr = per_sample_norms[mask].mean().clamp(0.25 * self.max_grad_norm,
-                                                              self.adaptive_cap * self.max_grad_norm)
-                    bounds[mask] = thr
-            group_clipping_bounds = bounds
-        
-        # Per-sample clipping factor s_i = min(1, C_a / ||g_i||_2)
-        clip_factors = torch.clamp(group_clipping_bounds / per_sample_norms, max=1.0)
-        
-        # 4. Sum clipped gradients and inject calibrated Gaussian noise
+            per_sample_grads = vmap(grad_fn, in_dims=(None, 0, 0, 0), randomness='different')(params, bx, by, bs)
+
+        norms_sq = torch.zeros(batch_size, device=device)
+        for g_ in per_sample_grads.values():
+            norms_sq += torch.sum(g_.reshape(batch_size, -1) ** 2, dim=1)
+        norms = torch.sqrt(norms_sq + 1e-8)
+
+        if self.mode == "uniform":
+            bounds = torch.full_like(norms, self.max_grad_norm)
+            c_max = self.max_grad_norm
+        elif self.mode == "refdp":
+            wt = torch.tensor(self.w, device=device, dtype=norms.dtype)
+            bounds = self.max_grad_norm * wt[bs.long()]
+            c_max = self.c_max
+        elif self.mode == "dpsgdf":
+            C0 = self.max_grad_norm
+            over = (norms > C0).float()
+            m_k = torch.stack([(over * (bs == g)).sum() for g in (0, 1)])
+            o_k = torch.stack([((1 - over) * (bs == g)).sum() for g in (0, 1)])
+            m_t = m_k + torch.randn(2, device=device) * self.sigma1
+            o_t = o_k + torch.randn(2, device=device) * self.sigma1
+            b_t = torch.clamp(m_t + o_t, min=1.0)
+            m_tot = torch.clamp(m_t.sum(), min=0.0)
+            frac_k = torch.clamp(m_t, min=0.0) / b_t
+            frac_pop = torch.clamp(m_tot / float(norm_factor), min=1e-3)
+            ratio = torch.clamp(frac_k / frac_pop, 0.0, self.ratio_cap)
+            ck = C0 * (1.0 + ratio)
+            bounds = ck[bs.long()]
+            c_max = float(ck.max())
+            self._add_rdp(q_subsample, self.sigma1)
+        else:
+            raise ValueError(self.mode)
+
+        clip = torch.clamp(bounds / norms, max=1.0)
         self.optimizer.zero_grad()
-        for p_name, p_param in self.model.named_parameters():
-            if p_name in per_sample_grads:
-                p_grad = per_sample_grads[p_name]
-                view_shape = [batch_size] + [1] * (p_grad.dim() - 1)
-                expanded_clip = clip_factors.view(*view_shape)
-                clipped_sum = torch.sum(p_grad * expanded_clip, dim=0)
-                
+        for name, p_param in self.model.named_parameters():
+            if name in per_sample_grads:
+                pg = per_sample_grads[name]
+                clipped_sum = torch.sum(pg * clip.view([batch_size] + [1] * (pg.dim() - 1)), dim=0)
                 if self.noise_multiplier > 0:
-                    # Noise calibrated to worst-case L2 sensitivity C_max
-                    noise = torch.randn_like(clipped_sum) * (self.noise_multiplier * self.c_max)
-                    sanitized_grad = (clipped_sum + noise) / norm_factor
-                else:
-                    sanitized_grad = clipped_sum / norm_factor
-                    
-                p_param.grad = sanitized_grad
-                
-        # 5. Optimizer update (Adam post-processing)
+                    clipped_sum = clipped_sum + torch.randn_like(clipped_sum) * (self.noise_multiplier * c_max)
+                g_final = clipped_sum / norm_factor
+                if extra_grads is not None and name in extra_grads:
+                    g_final = g_final + extra_grads[name]
+                p_param.grad = g_final
         self.optimizer.step()
         self.steps += 1
-        
-        # 6. RDP Privacy accounting
         if self.noise_multiplier > 0:
-            for alpha in self.rdp_orders:
-                step_rdp = compute_rdp(q_subsample, self.noise_multiplier, alpha)
-                self.total_rdp[alpha] += step_rdp
+            self._add_rdp(q_subsample, self.noise_multiplier)
+
+    def add_constraint_release(self, q, sigma, times=1):
+        """Account an additional Gaussian-mechanism release (e.g., PF-LD constraint gradient or dual update)."""
+        self._add_rdp(q, sigma, times)
 
     def get_privacy_spent(self):
         if self.noise_multiplier == 0:
             return float('inf'), 0.0
-        eps = rdp_to_dp(self.total_rdp, target_delta=self.target_delta)
-        return eps, self.target_delta
+        return rdp_to_dp(self.total_rdp, target_delta=self.target_delta), self.target_delta
 
 SubgroupCalibratedDPOptimizer = VectorizedSCDPOptimizer
+
+
+def accounted_epsilon(q, steps, sigma, streams=1, epoch_releases=0, delta=1e-5):
+    """epsilon of `steps` sampled-Gaussian steps (`streams` per step) plus `epoch_releases` full-data Gaussian releases."""
+    orders = list(range(2, 129))
+    rdp = {a: steps * streams * compute_rdp(q, sigma, a) + epoch_releases * compute_rdp(1.0, sigma, a) for a in orders}
+    return rdp_to_dp(rdp, target_delta=delta)
+
+
+def match_noise_multiplier(target_eps, q, steps, streams, epoch_releases, delta=1e-5):
+    """Smallest noise multiplier whose accounted epsilon is at most target_eps (bisection)."""
+    lo, hi = 0.3, 50.0
+    for _ in range(60):
+        mid = 0.5 * (lo + hi)
+        if accounted_epsilon(q, steps, mid, streams, epoch_releases, delta) > target_eps:
+            lo = mid
+        else:
+            hi = mid
+    return hi

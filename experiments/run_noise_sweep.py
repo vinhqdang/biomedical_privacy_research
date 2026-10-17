@@ -1,27 +1,28 @@
-"""Noise-multiplier sweep for the private models (same protocol as run_all_experiments.py, 5 seeds)."""
+"""Noise-multiplier sweep for the private models (same protocol as run_all_experiments.py, 3 seeds)."""
 import os, sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import numpy as np, torch, pandas as pd
-from data.download_benchmarks import load_statlog_heart, load_pima_diabetes, load_clinical_ehr_cohort
+from data.download_benchmarks import load_statlog_heart, load_pima_diabetes, load_clinical_ehr_cohort, load_diabetes130_readmission
 from src.train_eval import prepare_dataset_splits, train_model, evaluate_model_pipeline
 
 MODELS = [
     ("Standard DP-SGD", dict(sc=False, swd=False, gcp=False)),
-    ("DPSGD-F (simplified)", dict(sc=False, swd=False, gcp=False)),
+    ("DPSGD-F", dict(sc=False, swd=False, gcp=False)),
+    ("PF-LD (adapted)", dict(sc=False, swd=False, gcp=False)),
     ("DP-EDL", dict(sc=False, swd=False, gcp=False)),
     ("TRACER-Med (Proposed)", dict(sc=True, swd=True, gcp=True)),
 ]
-SIGMAS = [0.8, 1.0, 1.5, 2.0, 3.0]
+SIGMAS = [0.8, 1.5, 3.0]
 KEYS = ["AUC", "ECE", "DP_Disparity", "EO_Disparity", "MIA_AUC", "Coverage_Disparity", "Avg_Set_Size", "Singlet_Rate", "Sensitivity", "Balanced_Acc", "AUC_Gap", "DP_Disparity_T05", "EO_Disparity_T05"]
 rows = []
-for loader in (load_statlog_heart, load_pima_diabetes, load_clinical_ehr_cohort):
+for loader in (load_statlog_heart, load_pima_diabetes, load_diabetes130_readmission, load_clinical_ehr_cohort):
     X, y, s, f, name = loader()
     epochs = 20 if X.shape[0] < 1000 else 12
     bs = 32 if X.shape[0] < 1000 else 128
     for sigma in SIGMAS:
         for m, c in MODELS:
             reps = []
-            for seed in range(42, 47):
+            for seed in range(42, 45):
                 sp = prepare_dataset_splits(X, y, s, seed=seed)
                 torch.manual_seed(seed); np.random.seed(seed)
                 model, eps, delta = train_model(model_type=m, splits=sp, epochs=epochs, lr=0.005, batch_size=bs,

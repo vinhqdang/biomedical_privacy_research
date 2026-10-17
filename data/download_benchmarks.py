@@ -167,3 +167,51 @@ if __name__ == "__main__":
     
     X3, y3, s3, f3, name3 = load_clinical_ehr_cohort()
     print(f"Loaded {name3}: X={X3.shape}, y={y3.shape}, sensitive pos={s3.mean():.2f}, target pos={y3.mean():.2f}")
+
+
+DIABETES130_URL = "https://archive.ics.uci.edu/static/public/296/diabetes+130-us+hospitals+for+years+1999-2008.zip"
+
+def load_diabetes130_readmission(data_dir="data", n_samples=20000, seed=0):
+    """
+    Diabetes 130-US Hospitals (UCI repository, 1999-2008), real inpatient encounters.
+    Target: readmission within 30 days (1) versus later or never (0).
+    Sensitive attribute: race (1: African American, 0: Caucasian); other races and missing race removed.
+    One encounter per patient (first), encounters ending in death or hospice removed, then a seeded
+    random subsample of n_samples patients. Race is not used as a feature.
+    """
+    csv_path = os.path.join(data_dir, "diabetic_data.csv")
+    if not os.path.exists(csv_path):
+        import io, zipfile, urllib.request
+        print("Downloading Diabetes 130-US Hospitals from UCI...")
+        raw = urllib.request.urlopen(DIABETES130_URL, timeout=120).read()
+        with zipfile.ZipFile(io.BytesIO(raw)) as z:
+            z.extract("diabetic_data.csv", data_dir)
+    df = pd.read_csv(csv_path, na_values="?")
+    df = df[df["race"].isin(["Caucasian", "AfricanAmerican"])]
+    df = df[~df["discharge_disposition_id"].isin([11, 13, 14, 19, 20, 21])]  # expired / hospice
+    df = df.drop_duplicates(subset="patient_nbr", keep="first")
+    df = df[df["gender"].isin(["Male", "Female"])]
+    df = df.sample(n=min(n_samples, len(df)), random_state=seed).reset_index(drop=True)
+    y = (df["readmitted"] == "<30").astype(np.int64).values
+    s = (df["race"] == "AfricanAmerican").astype(np.int64).values
+    age_map = {f"[{10*i}-{10*i+10})": 10 * i + 5 for i in range(10)}
+    feats = pd.DataFrame({
+        "age": df["age"].map(age_map).astype(float),
+        "male": (df["gender"] == "Male").astype(float),
+        "time_in_hospital": df["time_in_hospital"].astype(float),
+        "num_lab_procedures": df["num_lab_procedures"].astype(float),
+        "num_procedures": df["num_procedures"].astype(float),
+        "num_medications": df["num_medications"].astype(float),
+        "number_outpatient": np.log1p(df["number_outpatient"].astype(float)),
+        "number_emergency": np.log1p(df["number_emergency"].astype(float)),
+        "number_inpatient": np.log1p(df["number_inpatient"].astype(float)),
+        "number_diagnoses": df["number_diagnoses"].astype(float),
+        "emergency_admission": (df["admission_type_id"] == 1).astype(float),
+        "discharged_home": (df["discharge_disposition_id"] == 1).astype(float),
+        "insulin_use": (df["insulin"] != "No").astype(float),
+        "med_change": (df["change"] == "Ch").astype(float),
+        "diabetes_med": (df["diabetesMed"] == "Yes").astype(float),
+        "a1c_tested": (~df["A1Cresult"].isin(["None"])).astype(float),
+        "a1c_high": df["A1Cresult"].isin([">7", ">8"]).astype(float),
+    })
+    return feats.values.astype(np.float32), y, s, list(feats.columns), "Diabetes 130-US Hospitals (Readmission, real)"

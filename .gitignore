@@ -227,3 +227,4 @@ __marimo__/
 *.out
 *.spl
 *.synctex.gz
+data/diabetic_data.csv

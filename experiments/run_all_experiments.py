@@ -21,7 +21,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import torch
 
-from data.download_benchmarks import load_statlog_heart, load_pima_diabetes, load_clinical_ehr_cohort
+from data.download_benchmarks import load_statlog_heart, load_pima_diabetes, load_clinical_ehr_cohort, load_diabetes130_readmission
+from src.dp_optimizer import accounted_epsilon, match_noise_multiplier
 from src.train_eval import prepare_dataset_splits, train_model, evaluate_model_pipeline
 from src.xai import DualChannelDirichletExplainer
 
@@ -45,17 +46,27 @@ def run_dataset_benchmark(dataset_name, X, y, sensitive, feature_names, n_seeds=
     print(f"Samples: {X.shape[0]}, Features: {X.shape[1]}, Sensitive Minority Rate: {min(sensitive.mean(), 1-sensitive.mean()):.2f}")
     print(f"=======================================================")
     
+    epochs = 20 if X.shape[0] < 1000 else 12
+    batch_sz = 32 if X.shape[0] < 1000 else 128
+    n_tr = len(prepare_dataset_splits(X, y, sensitive, seed=42)["y_train"])
+    q = batch_sz / n_tr
+    steps = epochs * int(np.ceil(1.0 / q))
+    eps_ref = accounted_epsilon(q, steps, 0.8)
+    sigma_pf = match_noise_multiplier(eps_ref, q, steps, streams=2, epoch_releases=epochs)
+    print(f"  PF-LD matched-epsilon noise multiplier: {sigma_pf:.2f} (target eps {eps_ref:.1f})")
     models_to_test = [
-        {"type": "Standard ERM", "is_dp": False, "noise": 0.0, "sc_dp": False, "swd": False, "group_cp": False},
-        {"type": "Standard DP-SGD", "is_dp": True, "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
-        {"type": "Fair-ERM", "is_dp": False, "noise": 0.0, "sc_dp": False, "swd": True, "group_cp": False},
-        {"type": "DPSGD-F (simplified)", "is_dp": True, "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
-        {"type": "Standard EDL", "is_dp": False, "noise": 0.0, "sc_dp": False, "swd": False, "group_cp": False},
-        {"type": "DP-EDL", "is_dp": True, "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
-        {"type": "TRACER-Med (Proposed)", "is_dp": True, "noise": 0.8, "sc_dp": True, "swd": True, "group_cp": True},
-        {"type": "TRACER-Med w/o SC-DP", "is_dp": True, "noise": 0.8, "sc_dp": False, "swd": True, "group_cp": True},
-        {"type": "TRACER-Med w/o SWD", "is_dp": True, "noise": 0.8, "sc_dp": True, "swd": False, "group_cp": True},
-        {"type": "TRACER-Med w/o DP-GCCP", "is_dp": True, "noise": 0.8, "sc_dp": True, "swd": True, "group_cp": False},
+        {"type": "Standard ERM", "noise": 0.0, "sc_dp": False, "swd": False, "group_cp": False},
+        {"type": "Standard DP-SGD", "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
+        {"type": "Fair-ERM", "noise": 0.0, "sc_dp": False, "swd": True, "group_cp": False},
+        {"type": "DPSGD-F", "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
+        {"type": "PF-LD (adapted)", "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
+        {"type": "PF-LD (adapted, matched eps)", "noise": sigma_pf, "sc_dp": False, "swd": False, "group_cp": False},
+        {"type": "Standard EDL", "noise": 0.0, "sc_dp": False, "swd": False, "group_cp": False},
+        {"type": "DP-EDL", "noise": 0.8, "sc_dp": False, "swd": False, "group_cp": False},
+        {"type": "TRACER-Med (Proposed)", "noise": 0.8, "sc_dp": True, "swd": True, "group_cp": True},
+        {"type": "TRACER-Med w/o SC-DP", "noise": 0.8, "sc_dp": False, "swd": True, "group_cp": True},
+        {"type": "TRACER-Med w/o SWD", "noise": 0.8, "sc_dp": True, "swd": False, "group_cp": True},
+        {"type": "TRACER-Med w/o DP-GCCP", "noise": 0.8, "sc_dp": True, "swd": True, "group_cp": False},
     ]
     
     results = []
@@ -71,9 +82,6 @@ def run_dataset_benchmark(dataset_name, X, y, sensitive, feature_names, n_seeds=
             splits = prepare_dataset_splits(X, y, sensitive, seed=seed)
             last_splits = splits
             
-            # Select epochs based on dataset size for fast, robust convergence
-            epochs = 20 if X.shape[0] < 1000 else 12
-            batch_sz = 32 if X.shape[0] < 1000 else 128
             
             torch.manual_seed(seed); np.random.seed(seed)
             model, eps, delta = train_model(
@@ -129,7 +137,7 @@ def generate_publication_figures(all_results_df, trained_models_ehr, splits_ehr,
     # -------------------------------------------------------------
     # Figure 1: Clinical Utility (AUC) vs Algorithmic Fairness Disparity across Datasets
     # -------------------------------------------------------------
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5), dpi=300)
+    fig, axes = plt.subplots(1, 4, figsize=(21, 5), dpi=300)
     datasets = all_results_df["Dataset"].unique()
     
     for ax, d_name in zip(axes, datasets):
@@ -295,7 +303,12 @@ def main():
     res2, _, _, _ = run_dataset_benchmark(name2, X2, y2, s2, f2, n_seeds=3)
     all_results.extend(res2)
     
-    # 3. Multi-Center Clinical EHR Cohort
+    # 3. Real large cohort: Diabetes 130-US Hospitals
+    X4, y4, s4, f4, name4 = load_diabetes130_readmission()
+    res4, _, _, _ = run_dataset_benchmark(name4, X4, y4, s4, f4, n_seeds=3)
+    all_results.extend(res4)
+
+    # 4. Simulated EHR cohort
     X3, y3, s3, f3, name3 = load_clinical_ehr_cohort()
     res3, models3, splits3, feats3 = run_dataset_benchmark(name3, X3, y3, s3, f3, n_seeds=3)
     all_results.extend(res3)
