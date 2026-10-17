@@ -1,0 +1,19 @@
+TITLE
+TRACER-Med: differentially private evidential learning with prototype alignment and conformal prediction for clinical risk prediction
+
+AUTHORS
+Quang-Vinh Dang (corresponding author), British University Vietnam, Hung Yen, Vietnam. vinh.dq4@buv.edu.vn
+Dat Le, Ho Chi Minh City University of Economics and Finance, Ho Chi Minh City, Vietnam. datla@uef.edu.vn
+Minh Ngoc Dinh, Millennia Education, Ho Chi Minh City, Vietnam. minh.dinh@maeducation.com
+
+ABSTRACT
+Background: Clinical prediction models must protect patient privacy, perform comparably across demographic groups, and report calibrated uncertainty. These requirements interact when models are trained with differential privacy. We studied TRACER-Med, a framework that combines an evidential Dirichlet network, differentially private optimization with subgroup-aware clipping (REF-DP), per-sample class-prototype alignment (PC-PAT), private conformal calibration, and dual-channel attribution of disease risk and epistemic doubt.
+
+Methods: We evaluated TRACER-Med on four cohorts: Statlog Heart Disease (n = 270), Pima Indians Diabetes (n = 768), a real 20,000-patient hospital readmission cohort from the UCI Diabetes 130-US Hospitals data, and a simulated inpatient cohort (n = 10,000). Comparators were non-private models, DP-SGD, DPSGD-F, an adaptation of the private Lagrangian-dual fairness method PF-LD, evidential learning, and DP-EDL. We used an exact Poisson-subsampled Rényi privacy accountant, a common decision threshold chosen on the calibration split, a noise-multiplier sweep, ablations, and numerical checks of the analytical statements. Results are means over three random splits.
+
+Results: TRACER-Med had lower calibration error than the private baselines on the two larger cohorts at all three noise levels tested (expected calibration error 0.011 versus 0.026–0.080 on the real cohort), at a cost of about 0.02 ROC-AUC there, and one of the lowest membership-inference AUCs. It did not reduce equalized-odds disparity relative to the private baselines on the small cohorts, whereas the PF-LD adaptation did (0.11 versus 0.26 on Pima at matched privacy budget). Subgroup-aware clipping gave no consistent benefit. The conformal variant with a coverage guarantee returned uninformative sets below about 1,300 calibration records, and a plug-in variant undercovered (0.81–0.82 versus 0.90 nominal) on the smallest cohort. The numerical audit corrected several statements of an earlier version of this work.
+
+Conclusions: In these experiments the main benefit of the framework was better calibration under differential privacy on larger cohorts. Claims of improved fairness and of informative small-cohort conformal sets were not supported. Larger real cohorts with stronger signal are needed.
+
+KEYWORDS
+Differential privacy; Evidential deep learning; Conformal prediction; Algorithmic fairness; Calibration; Clinical risk prediction
