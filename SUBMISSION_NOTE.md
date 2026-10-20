@@ -113,3 +113,6 @@ Next step: reposition the contribution around its methodological novelty (REF-DP
 - No reviewers were suggested in the cover letter.
 - Keep `manuscript/bmc/main_bmc.tex` (generated from `manuscript/main.tex`) in sync when preparing a revision.
 - Key limitations stated in the paper: weak privacy budgets at noise multiplier 0.8; no Equalized Odds gain over the private baselines; REF-DP shows no consistent benefit; private conformal sets are uninformative on small cohorts; one real cohort with weak signal; PF-LD is an adaptation tuned on the evaluation splits.
+
+### BMC technical check (October 20, 2026)
+Manuscript ID f9b1685e-63ac-430d-9b2c-97bc0c34abde v1.0 was returned by editorial support: an editable manuscript file is required. Fix: upload `manuscript/bmc/bmc_latex_source.zip` (main_bmc.tex, .bbl, class and style files, references.bib, figures/) as the main manuscript file. Content unchanged; only the figure and bibliography paths were made relative to the zip root. Compiles standalone with pdflatex + bibtex.
